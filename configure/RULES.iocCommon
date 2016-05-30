@@ -1,0 +1,195 @@
+###############################################################################
+# RULES.iocCommon -- LCS Rules for Building the iocCommon Directory
+#------------------------------------------------------------------------------
+# This file resides in the <TOP>/configure directory and provides the rules
+# for building an IOC directory in the iocCommon area.  It is invoked by
+# the RULES.ioc file.
+#
+# To build and enable an iocCommon/<ioc-name> directory:
+#  o First execute gmake on the <ioc-name>App and iocBoot/ioc-<ioc-name>
+#    directories.
+#  o Second cd to the iocBoot/ioc_<ioc-name> directory and execute
+#       gmake enable
+# This will create an iocCommon/<ioc-name> directory and populate it such
+# that it points to the <ioc-name> files from the application in which you
+# executed the gmake command.
+#
+#------------------------------------------------------------------------------
+# Author:  E.Bjorklund
+# Date:    17 December 2008
+#
+#------------------------------------------------------------------------------
+# Modification Log:
+# 17-Dec-2008  -bjo-  Original Release
+# 24-Mar-2011  -sab-  Allow cRIO device to copy files from server and boot out of flash
+# 10-Oct-2012  -sab-  Add rules for creating softlinks to the dbd file and the source directory
+#                     for crawlers
+# 22-Oct-2012  -sab-  Modify startup.cmd file to work for soft IOCs
+# 20-Nov-2012  -bjo-  Added cr12 as another HW type that boots from local disks
+# 14-May-2013  -sab-  adjust ording so soft IOCs work again
+###############################################################################
+
+###############################################################################
+#  Set up the environment                                                     #
+###############################################################################
+
+#---------------------
+# Extract the architecture and hardware type for the IOC we are building
+#
+T_A     = $(ARCH)
+HW_TYPE = $(word 2,$(subst -, ,$(ARCH)))
+
+#---------------------
+# Set which hardware types use local disks to boot from
+#
+LOCAL_DISK_HW_TYPES = cRIO cr12
+
+#---------------------
+# Get the architecture-specific environment for this IOC
+#
+include $(EPICS_BASE)/configure/CONFIG
+
+#---------------------
+# Get the IOC name, source directory (where to point to),
+# and home directory (its iocCommon location).
+#
+COMMON_TOP     = /ade/epics/iocCommon
+IOC_NAME       = $(strip $(patsubst _%,%,$(patsubst ioc%,%,$(notdir $(CURDIR)))))
+IOC_HOME       = $(COMMON_TOP)/$(IOC_NAME)
+IOC_SOURCE     = $(word 1,$(subst /iocBoot, ,$(CURDIR)))
+
+#---------------------
+# Define the location of the OS image to load for vxWorks systems.
+#
+ifeq ($(OS_CLASS),vxWorks)
+    OS_IMAGE_LOCATION = /ade/vxWorks/ioc/vxWorks$(VXWORKS_VERSION)/$(HW_TYPE)/default
+endif
+
+#---------------------
+# Other useful symbols
+#
+DEV_DIRECTORY  = $(findstring /dev/,$(CURDIR))
+STARTUP_SCRIPT = $(IOC_HOME)/startup.cmd
+
+###############################################################################
+#  Rules for building and populating the iocCommon/<ioc-name> directory       #
+###############################################################################
+
+.PHONY : enable
+enable::
+	@echo "Enabling the \"$(IOC_HOME)\" directory to boot the \"$(IOC_NAME)\" IOC"
+	@echo "  found at \"$(IOC_SOURCE)\" ..."
+	@echo ""
+
+#---------------------
+# Create the IOC's home directory if it does not already exist
+#
+	@if [ ! -d $(IOC_HOME) ]; then \
+            $(MKDIR) $(IOC_HOME); \
+            $(MKDIR) $(IOC_HOME)/data; \
+        fi
+
+#---------------------
+# Clean out pre-existing files from any previous enables.
+#
+	@$(RM) $(IOC_HOME)/*.db
+	@$(RM) $(IOC_HOME)/*.dbd
+	@$(RM) $(IOC_HOME)/*App
+	@$(RM) $(IOC_HOME)/osImage
+	@$(RM) $(STARTUP_SCRIPT)
+
+#---------------------
+# Create a link to the OS image if that needs to be loaded
+#
+        ifdef OS_IMAGE_LOCATION
+	@if [ -e $(OS_IMAGE_LOCATION) ]; then \
+           ln -s $(OS_IMAGE_LOCATION) $(IOC_HOME)/osImage; \
+        fi
+        endif
+
+#---------------------
+# Create a link to the database file (for the crawler)
+#
+	@if [ -e $(IOC_SOURCE)/db/$(IOC_NAME).db ]; then \
+           ln -s $(IOC_SOURCE)/db/$(IOC_NAME).db $(IOC_HOME)/$(IOC_NAME).db; \
+        fi
+
+#---------------------
+# Create a link to the database definition file (for the crawler)
+#
+	@if [ -e $(IOC_SOURCE)/dbd/$(IOC_NAME).dbd ]; then \
+           ln -s $(IOC_SOURCE)/dbd/$(IOC_NAME).dbd $(IOC_HOME)/$(IOC_NAME).dbd; \
+        fi
+
+#---------------------
+# Create a link to the application directory
+#
+	@if [ -e $(IOC_SOURCE)/$(IOC_NAME)App ]; then \
+           ln -s $(IOC_SOURCE)/$(IOC_NAME)App $(IOC_HOME)/$(IOC_NAME)App; \
+        fi
+        
+#---------------------
+# Create the startup.cmd file
+#
+    #---------------------
+    # Set the local working directory for hardware types that boot from local disks
+    #-
+    ifeq ($(HW_TYPE),cRIO)
+	@echo "cd \"/c/Configuration\"" >> $(STARTUP_SCRIPT)
+    else
+      ifeq ($(HW_TYPE),cr12)
+	@echo "cd \"/ahci00:2/epics\"" >> $(STARTUP_SCRIPT)
+      endif
+    endif
+
+    #---------------------
+    # Set the IOC name and location of the common data directory
+    #-
+    ifeq ($(T_A),linux-x86)
+	@echo "#!/ade/epics/iocTop/R3.14.12.3/soft/bin/linux-x86/$(IOC_NAME)" >> $(STARTUP_SCRIPT);
+	@chmod ugo+x $(STARTUP_SCRIPT);
+	@echo "epicsEnvSet(\"iocName\",\"$(IOC_NAME)\")" >> $(STARTUP_SCRIPT);
+	@echo "epicsEnvSet(\"data\",\"$(IOC_HOME)/data\")" >> $(STARTUP_SCRIPT);
+    else
+	@echo "iocName=\"$(IOC_NAME)\"" >> $(STARTUP_SCRIPT);
+	@echo "data=\"$(IOC_HOME)/data\"" >> $(STARTUP_SCRIPT);
+    endif
+
+    #---------------------
+    # For hardware types that boot from local disks, make sure their local startup files
+    # are up to date and only invoke the common login access commands.
+    #-
+    ifneq ($(filter $(LOCAL_DISK_HW_TYPES), $(HW_TYPE)),)
+	@if [ -e $(COMMON_TOP)/All/common_login.$(OS_CLASS) ]; then \
+            echo "cpnew \"$(COMMON_TOP)/All/common_login.$(OS_CLASS)\",\"common_login.$(OS_CLASS)\"" >> $(STARTUP_SCRIPT); \
+        fi
+
+	@echo "cpnew \"$(CURDIR)/st.cmd\",\"st.cmd\"" >> $(STARTUP_SCRIPT)
+	@echo "cpnew \"$(CURDIR)/cdCommands\",\"cdCommands\"" >> $(STARTUP_SCRIPT)
+
+	@if [ -e $(COMMON_TOP)/All/common_login.$(OS_CLASS) ]; then \
+            echo "< common_login.$(OS_CLASS)" >> $(STARTUP_SCRIPT); \
+        fi        
+
+    #---------------------
+    # For hardware types that do not boot from local disks, invoke both the common NFS mount
+    # commands and the common login access commands. Then set the working directory to
+    # the location of the IOC's startup script.
+    #-
+    else
+	@if [ -e $(COMMON_TOP)/All/common_nfs.$(OS_CLASS) ]; then \
+            echo "< $(COMMON_TOP)/All/common_nfs.$(OS_CLASS)" >> $(STARTUP_SCRIPT); \
+        fi
+
+	@if [ -e $(COMMON_TOP)/All/common_login.$(OS_CLASS) ]; then \
+            echo "< $(COMMON_TOP)/All/common_login.$(OS_CLASS)" >> $(STARTUP_SCRIPT); \
+        fi        
+
+	@echo "cd \"$(CURDIR)\"" >> $(STARTUP_SCRIPT)
+
+    endif
+
+    #---------------------
+    # Invoke the IOC-specific startup file
+    #-
+	@echo "< st.cmd" >> $(STARTUP_SCRIPT);
