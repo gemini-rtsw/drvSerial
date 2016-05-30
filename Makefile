@@ -1,32 +1,17 @@
-TOP=.
-
+#Makefile at top of application tree
+TOP = .
 include $(TOP)/configure/CONFIG
-#----------------------------------------
-#  ADD MACRO DEFINITIONS AFTER THIS LINE
-#=============================
+DIRS := $(DIRS) $(filter-out $(DIRS), configure)
+DIRS := $(DIRS) $(filter-out $(DIRS), $(wildcard *App))
+DIRS := $(DIRS) $(filter-out $(DIRS), $(wildcard iocBoot))
 
-# release header files
-INC += drvSerial.h
+define DIR_template
+ $(1)_DEPEND_DIRS = configure
+endef
+$(foreach dir, $(filter-out configure,$(DIRS)),$(eval $(call DIR_template,$(dir))))
 
-#=============================
+iocBoot_DEPEND_DIRS += $(filter %App,$(DIRS))
 
-# xxxRecord.h will be created from xxxRecord.dbd
-#DBDINC += xxxRecord
+include $(TOP)/configure/RULES_TOP
 
-# <name>.dbd will be created from <name>Include.dbd
-DBD += drvSerial.dbd
-
-#=============================
-
-LIBRARY_IOC = drvSerial
-
-drvSerial_SRCS += drvSerial.c
-
-OBJS  += drvSerialRegister
-
-#===========================
-
-include $(TOP)/configure/RULES
-#----------------------------------------
-#  ADD RULES AFTER THIS LINE
 
