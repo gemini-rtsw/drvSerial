@@ -1,3 +1,2 @@
 #RULES.ioc
 include $(CONFIG)/RULES.ioc
--include $(TOP)/configure/RULES.iocCommon
