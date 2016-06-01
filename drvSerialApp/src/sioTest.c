@@ -5,16 +5,21 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <logLib.h>
-#include <taskLib.h>
 
 /*
  * EPICS
  */
 #include <epicsPrint.h>
 #include <epicsAssert.h>
+#include <epicsThread.h>
+#include <epicsExport.h>
+#include <iocsh.h>
 
-#include <drvSerial.h>
+#include "drvSerial.h"
+
+
+#define OK  0
+#define ERROR  (-1)
 
 int sioTxDelay = 1,
     sioDisplay = 0,
@@ -23,16 +28,18 @@ int sioTxDelay = 1,
 
 drvSerialLinkId sioId = 0;
 
-LOCAL int sioStreamIn( FILE *pf, drvSerialResponse *pResp, 
+static  int sioStreamIn( FILE *pf, drvSerialResponse *pResp, 
 		       void *pAppPrivate)
 {
   int c;
 
   while ( (c=getc(pf))!=EOF) {
 
-    if ( sioDisplay ) 
-      if ( c < 32 || c > 126 ) printf("[%2d]", c ); 
+    if ( sioDisplay ) { 
+      if ( c < 32 || c > 126 ) 
+         printf("[%2d]", c ); 
       else printf("%c",c);
+    }
 
   /* 
    * this causes drvSerial to delete and restart the io tasks
@@ -43,7 +50,7 @@ LOCAL int sioStreamIn( FILE *pf, drvSerialResponse *pResp,
   return c;
 }
 
-LOCAL int sioStreamOut (FILE *pf, drvSerialRequest *pReq)
+static int sioStreamOut (FILE *pf, drvSerialRequest *pReq)
 {
   unsigned char *pBuf;
   int s=0;
@@ -51,7 +58,7 @@ LOCAL int sioStreamOut (FILE *pf, drvSerialRequest *pReq)
   for (pBuf=pReq->buf; pBuf<&pReq->buf[pReq->bufCount]; pBuf++) {
     s = putc(*pBuf, pf);
     if (s == EOF) {
-      logMsg("\nEOF returned from putc()\n",0,0,0,0,0,0);
+      errlogPrintf("\nEOF returned from putc()\n");
       break;
     }
   }
@@ -70,13 +77,17 @@ void sioInit( char *pName )
   int status;
   void *pId;
   
+
+/* this should already be done by iocInit()  */
+#if 0
   status = drvSerialInitSts();
   
   if ( status == S_drvSerial_noInit ) {
     status = drvSerialInit();
     assert(status==OK);
   }
-  
+#endif
+ 
   status = drvSerialAttachLink( pName,
 				sioStreamIn,
 				(void **)&pId );
@@ -117,20 +128,46 @@ void sioTest( char *port )
   int idx1, idx2;
   char wrBfr[256];
 
-  if (sioId == 0) {
-    drvSerialInit();
+  if (port == NULL) {
+     epicsPrintf("Specify port name.\n");
+     return;
+  }
 
+  if (sioId == 0) {
+    /* drvSerialInit();  */ /* This should already be done by iocInit() */
     sioInit( port );
   }
 
+/*
   for (idx1=0; idx1<256; idx1++) {
     for (idx2=0;idx2<10;idx2++)
       wrBfr[idx2] = idx1;
-
     sioTx( wrBfr, 10 );
-    if (sioTxDelay) taskDelay(sioTxDelay);
+    if (sioTxDelay) epicsThreadSleep(0.1);
   }
+*/
+
+   sprintf(wrBfr, "Hello World!\n");
+   sioTx( wrBfr, strlen(wrBfr)); 
+
 }
 
 
+static const iocshArg sioTest_Arg0 = { "port", iocshArgString };
+static const iocshArg *sioTest_Args[] = { &sioTest_Arg0 };
+static const iocshFuncDef sioTest_FuncDef =
+   {"sioTest", 1, sioTest_Args};
+static void sioTest_CallFunc(const iocshArgBuf *args )
+{
+   sioTest(args[0].sval);
+}
+static void sioTest_RegisterCommands(void)
+{
+   static int firstTime = 1;
+   if (firstTime) {
+      iocshRegister(&sioTest_FuncDef, sioTest_CallFunc);
+      firstTime = 0;
+   }
+}
+epicsExportRegistrar(sioTest_RegisterCommands);
 

@@ -96,12 +96,9 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
-
+#include <sys/ioctl.h>
 #include <errno.h>
-
-#ifndef vxWorks
 #include <sys/termios.h>
-#endif
 
 /*
  * EPICS
@@ -123,17 +120,13 @@
 #include <bucketLib.h>
 #include <freeList.h>
 
-#ifdef vxWorks
-#include <vxWorks.h>
-#include <semLib.h>
-#include <ioLib.h>
-#include <devLib.h> /* S_dev_noMemory */
-#else
-
 /* S_dev_noMemory changed to be S_db_noMemory from dbAccessDefs.h included
  * by dbAccess.h
  */
 
+
+
+#if 0
 /*
  * extracted from: /home/vw/m5.3.1.ppc/target/h/semLib.h
  */
@@ -186,6 +179,7 @@ typedef enum            /* SEM_B_STATE */
 #define TRUE            1
 #endif
 
+#endif    // #if 0
 
 #define NONE            (-1)    /* for times when NULL won't do */
 #define EOS             '\0'    /* C string terminator */
@@ -200,18 +194,22 @@ typedef enum            /* SEM_B_STATE */
 #define OK              0
 #define ERROR           (-1)
 
-#endif /* vxWorks */
 
 #define drvSerialGlobal /* allocate space for externals here */
-#include <drvSerial.h>
+#include "drvSerial.h"
 
 #define WAIT_N_SEC(N) {epicsThreadSleep(N);}
 
 /*
  * task creation options
  */
+#if 0
 #define tp_drvSerialPriority 55 	
 #define tp_drvSerialStackSize 0x1000	/* 4096 */
+#endif 
+
+#define tp_drvSerialPriority  epicsThreadPriorityMedium	
+#define tp_drvSerialStackSize epicsThreadGetStackSize(epicsThreadStackMedium)
 
 /*
  * maximum size of the request and response queue
@@ -254,8 +252,8 @@ typedef struct drvSerialParmTag
 	FILE *pRF; /* only touched by the read task */
 	FILE *pWF; /* only touched by the write task */
 	ELLLIST *pHighestPriReqQue;
-	int rdTaskId;
-	int wtTaskId;
+	epicsThreadId rdTaskId;
+	epicsThreadId wtTaskId;
 	unsigned readCanceled:1;
 	unsigned writeCanceled:1;
 } drvSerialParm;
@@ -702,7 +700,7 @@ drvSerialCreateLink(
 	 */
 	epicsMutexUnlock(devNameTbl.lock);
 
-	pDev->readQueueSem = epicsEventCreate(SEM_EMPTY);
+	pDev->readQueueSem = epicsEventCreate(epicsEventEmpty);
 	if (pDev->readQueueSem == NULL)
 	{
 		bucketRemoveItemStringId(devNameTbl.pBucket, pDev->pName);
@@ -712,7 +710,7 @@ drvSerialCreateLink(
 			   ":drvSerialCreateLink() epicsEventCreate()");
 		return status;
 	}
-	pDev->writeQueueSem = epicsEventCreate(SEM_EMPTY);
+	pDev->writeQueueSem = epicsEventCreate(epicsEventEmpty);
 
 	if (pDev->writeQueueSem == NULL)
 	{
@@ -788,10 +786,8 @@ int drvSerialWrite (drvSerialParm * pDev)
 {
 	int status;
         int delay = 0;
-#ifndef vxWorks
 	struct termios termios;
 	int fd;
-#endif
 
         /*
 	 *  Wait for the read task to start. If it doesn't within 
@@ -826,7 +822,6 @@ int drvSerialWrite (drvSerialParm * pDev)
 				pDev->writeCanceled = FALSE;
 				break;
 			}
-#ifndef vxWorks
 			fd = fileno(pDev->pWF);
 			printf (" drvSerialWrite - setting termios for (%d) \n", fd);
 			tcgetattr (fd, &termios);
@@ -842,7 +837,6 @@ int drvSerialWrite (drvSerialParm * pDev)
 			termios.c_cc[VREPRINT] = 0;
 			tcflush (fd, TCIFLUSH);
 			tcsetattr(fd, TCSANOW, &termios);
-#endif
 			WAIT_N_SEC (10);
 		}
 
@@ -947,9 +941,7 @@ drvSerialRead (drvSerialParm * pDev)
 	freeListItem 	*pResp;
 	freeListItem	resp;
 	int fd;
-#ifndef vxWorks
 	struct termios termios;
-#endif
 
 
 	while (TRUE)
@@ -961,7 +953,6 @@ drvSerialRead (drvSerialParm * pDev)
 				pDev->readCanceled = FALSE;
 				break;
 			}
-#ifndef vxWorks
 			fd = fileno(pDev->pRF);
 			printf (" drvSerialRead - setting termios for (%d) \n", fd);
 			tcgetattr (fd, &termios);
@@ -977,7 +968,6 @@ drvSerialRead (drvSerialParm * pDev)
 			termios.c_cc[VREPRINT] = 0;
 			tcflush (fd, TCIFLUSH);
 			tcsetattr(fd, TCSANOW, &termios);
-#endif
 			WAIT_N_SEC(10);
 		}
 
@@ -1381,9 +1371,7 @@ drvSerialLinkOpen (drvSerialParm *pDev)
     /* int errno=0;    */
     int fd;
 
-#ifndef vxWorks
     struct termios termios;
-#endif
     
 	/*
 	 * we dont quit if we are unable to open the
@@ -1397,7 +1385,6 @@ drvSerialLinkOpen (drvSerialParm *pDev)
 	if (!pDev->pWF) {
 		errMessage(S_drvSerial_linkDown, strerror(errno));
 	}
-#ifndef vxWorks
 			fd = fileno(pDev->pWF);
 			printf (" drvSerialLinkOpen - setting termios for %s (%d) \n", pDev->pName, fd);
 			tcgetattr (fd, &termios);
@@ -1417,16 +1404,14 @@ drvSerialLinkOpen (drvSerialParm *pDev)
 			termios.c_cc[VREPRINT] = 0;
 			tcflush (fd, TCIFLUSH);
 			tcsetattr(fd, TCSANOW, &termios);
-#endif
 
 	pDev->pRF = fopen (pDev->pName, "r");
 	if (!pDev->pRF) {
 		errMessage (S_drvSerial_linkDown, strerror(errno));
 	}
-#ifndef vxWorks
 			fd = fileno(pDev->pRF);
 			printf (" drvSerialLinkOpen - NOT setting termios for %s (%d) \n", pDev->pName, fd);
-			/*
+			
 			tcgetattr (fd, &termios);
 			printf ("termios.c_iflag = [%o]\n", termios.c_iflag);
 			printf ("termios.c_oflag = [%o]\n", termios.c_oflag);
@@ -1437,8 +1422,7 @@ drvSerialLinkOpen (drvSerialParm *pDev)
 			termios.c_cc[VMIN] = 1;
 			tcflush (fd, TCIFLUSH);
 			tcsetattr(fd, TCSANOW, &termios);
-			*/
-#endif
+		
 
 	pDev->readCanceled = 1;
 
@@ -1448,7 +1432,7 @@ drvSerialLinkOpen (drvSerialParm *pDev)
 			    tp_drvSerialPriority,/* priority */
 			    tp_drvSerialStackSize,/* stack size */
 			    (EPICSTHREADFUNC) drvSerialWrite, /* task entry point */
-			    (int) pDev );
+			    (void *) pDev );
 	if (!pDev->wtTaskId)
 	{
 		fclose (pDev->pRF);
@@ -1464,7 +1448,7 @@ drvSerialLinkOpen (drvSerialParm *pDev)
 			    tp_drvSerialPriority,/* priority */
 			    tp_drvSerialStackSize,/* stack size */
 			    (EPICSTHREADFUNC) drvSerialRead, /* task entry point */
-			    (int) pDev );
+			    (void *) pDev );
 	if (!pDev->rdTaskId)
 	{
 		fclose (pDev->pRF);
@@ -1505,13 +1489,17 @@ void drvSerialLinkReset (drvSerialParm * pDev)
 		epicsPrintf ("%s.%d reseting link \"%s\"\n", 
 			__FILE__, __LINE__, pDev->pName);
 		if (pDev->pRF) {
-			ioctl (fileno(pDev->pRF), FIOFLUSH, 0);
-			ioctl (fileno(pDev->pRF), FIOCANCEL, 0);
-			pDev->readCanceled = TRUE;
+
+		        /* ioctl (fileno(pDev->pRF), FIOFLUSH, 0); */   /* these only work under vxWorks */
+			/* ioctl (fileno(pDev->pRF), FIOCANCEL, 0); */  /* replace with fflush() 
+                                                                           and not worry about canceling pending transactions? */
+                       fflush(pDev->pRF);
+		pDev->readCanceled = TRUE;
 		}
 		if (pDev->pWF) {
-			ioctl (fileno(pDev->pWF), FIOFLUSH, 0);
-			ioctl (fileno(pDev->pWF), FIOCANCEL, 0);
+			/* ioctl (fileno(pDev->pWF), FIOFLUSH, 0); */   /* as above  */
+			/* ioctl (fileno(pDev->pWF), FIOCANCEL, 0); */
+                        fflush(pDev->pWF);
 			pDev->writeCanceled = TRUE;
 		}
 	}

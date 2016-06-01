@@ -23,10 +23,12 @@ LIBRARY_IOC = drvSerial
 drvSerial_SRCS += drvSerial.c
 drvSerial_SRCS += drvSerialRegister.cpp
 
-
+# A test facility to optionally add to an IOC
+DBD += sioTest.dbd
+LIBRARY_IOC += sioTest
+sioTest_SRCS += sioTest.c
 #===========================
 
 include $(TOP)/configure/RULES
 #----------------------------------------
 #  ADD RULES AFTER THIS LINE
-
