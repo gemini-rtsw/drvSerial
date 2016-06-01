@@ -12,6 +12,16 @@
  *
  * Modification Log:
  * -----------------
+ *
+ *
+ *      Revision 2016-06-01 mdw
+ *      Changed ioctl() FIOFLUSH function to fflush(), and
+ *      commented out ioctl() FIOCANCEL call, since these
+ *      are specific to vxWorks. Also made other changes to make 
+ *      the driver OSI compliant.
+ *
+ *     The revision numbering below is confusing.....
+ *
  * 	$Log: drvSerial.c,v $
  * 	Revision 1.3  2005/05/12 00:37:47  intdev
  * 	Works for if cryo - wdahl
