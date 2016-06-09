@@ -25,7 +25,8 @@ drvSerial_SRCS += drvSerialRegister.cpp
 
 # A test facility to optionally add to an IOC
 DBD += sioTest.dbd
-LIBRARY_IOC += sioTest
+DBD += drvSerialTest.dbd
+LIBRARY_IOC_RTEMS += sioTest
 sioTest_SRCS += sioTest.c
 #===========================
 

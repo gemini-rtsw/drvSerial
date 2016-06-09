@@ -39,10 +39,7 @@
  */
 
 
-/* I had to to add this or compile would fail with
- * "unknown type name uint8_t" -- Mike Westfall
- */
-#define uint8_t unsigned char 
+
 
 
 
@@ -52,6 +49,8 @@
  */
 int drvSerialSetBaudRate (const char *pName, unsigned rate);
 int drvSerialGetBaudRate (const char *pName);
+#endif
+
 
 
 /*
@@ -61,7 +60,7 @@ typedef struct
 {
 	void *pAppPrivate;
 	unsigned bufCount;
-	uint8_t	buf[0x100];
+	char	buf[0x100];
 } drvSerialResponse;
 
 typedef void *drvSerialLinkId;
@@ -118,7 +117,7 @@ typedef struct drvSerialRequestTag
 	int (*pCB)(FILE *pf, struct drvSerialRequestTag *pReq);
 	void *pAppPrivate;
 	unsigned bufCount;
-	uint8_t buf[0x100];
+	char buf[0x100];
 }drvSerialRequest;
 typedef int drvSerialSendCB (FILE *pf, drvSerialRequest *pReq);
 

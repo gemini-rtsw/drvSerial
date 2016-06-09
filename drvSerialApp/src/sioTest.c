@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 /*
  * EPICS
  */
@@ -16,7 +15,6 @@
 #include <iocsh.h>
 
 #include "drvSerial.h"
-
 
 #define OK  0
 #define ERROR  (-1)
@@ -91,7 +89,6 @@ void sioInit( char *pName )
   status = drvSerialAttachLink( pName,
 				sioStreamIn,
 				(void **)&pId );
-  
   if ( status == S_drvSerial_noneAttached ) {
     status = drvSerialCreateLink( pName, sioStreamIn, NULL, &sioId );
     assert(status==OK);
@@ -138,16 +135,15 @@ void sioTest( char *port )
     sioInit( port );
   }
 
-/*
   for (idx1=0; idx1<256; idx1++) {
     for (idx2=0;idx2<10;idx2++)
       wrBfr[idx2] = idx1;
     sioTx( wrBfr, 10 );
     if (sioTxDelay) epicsThreadSleep(0.1);
   }
-*/
 
-   sprintf(wrBfr, "Hello World!\n");
+
+   sprintf(wrBfr, "Hello World!\r\n");
    sioTx( wrBfr, strlen(wrBfr)); 
 
 }

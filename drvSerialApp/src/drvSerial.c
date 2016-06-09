@@ -1,12 +1,12 @@
-/* drvSerial.c */
-/* 	$Id: drvSerial.c,v 1.3 2005/05/12 00:37:47 intdev Exp $ */
+/*    drvSerial.c */
+/*    $Id: drvSerial.c,v 1.3 2005/05/12 00:37:47 intdev Exp $ */
 /*
  *      EPICS STDIO Driver Support (for serial devices)
  *
  *      Author:         Jeffrey O. Hill (LANL)
- *			johill@lanl.gov
- *			(505) 665 1831
- *			(for the KECK Astronomy Center)
+ *         johill@lanl.gov
+ *         (505) 665 1831
+ *         (for the KECK Astronomy Center)
  *
  *      Date:           6-6-95
  *
@@ -15,40 +15,40 @@
  *
  *
  *      Revision 2016-06-01 mdw
- *      Changed ioctl() FIOFLUSH function to fflush(), and
- *      commented out ioctl() FIOCANCEL call, since these
+ *      Changed ioctl() FIOFLUSH call to fflush(), and
+ *      changed ioctl() FIOCANCEL call to tcflush(), since these
  *      are specific to vxWorks. Also made other changes to make 
  *      the driver OSI compliant.
  *
  *     The revision numbering below is confusing.....
  *
- * 	$Log: drvSerial.c,v $
- * 	Revision 1.3  2005/05/12 00:37:47  intdev
- * 	Works for if cryo - wdahl
- * 	
- * 	Revision 1.2  2005/01/13 00:29:34  wdahl
- * 	Added epicsExprtAddress calls and include drvSup.h for 3.14.6
- * 	
- * 	Revision 1.1.1.1  2005/01/11 02:38:31  wdahl
- * 	unixIoc for EPICS 3.14.6
- * 	
- * 	Revision 1.1  2003/04/02 02:56:37  ktsubota
- * 	Initial insertion
- * 	
- * 	Revision 1.1  2003/01/14 00:24:03  ktsubota
- * 	Initial insertion
- * 	
- * 	Revision 1.2  2002/09/05 21:07:18  ahoney
- * 	Most recent version updated by J. Hill.
- * 	
- * 	Revision 1.6  1999/12/23 16:55:38  hill
- * 	fixed warnings drvAbdf1.c
+ *    $Log: drvSerial.c,v $
+ *    Revision 1.3  2005/05/12 00:37:47  intdev
+ *    Works for if cryo - wdahl
+ *    
+ *    Revision 1.2  2005/01/13 00:29:34  wdahl
+ *    Added epicsExprtAddress calls and include drvSup.h for 3.14.6
+ *    
+ *    Revision 1.1.1.1  2005/01/11 02:38:31  wdahl
+ *    unixIoc for EPICS 3.14.6
+ *    
+ *    Revision 1.1  2003/04/02 02:56:37  ktsubota
+ *    Initial insertion
+ *    
+ *    Revision 1.1  2003/01/14 00:24:03  ktsubota
+ *    Initial insertion
+ *    
+ *    Revision 1.2  2002/09/05 21:07:18  ahoney
+ *    Most recent version updated by J. Hill.
+ *    
+ *    Revision 1.6  1999/12/23 16:55:38  hill
+ *    fixed warnings drvAbdf1.c
  *
- * 	Revision 1.5  1999/09/14 15:17:54  hill
- * 	increased queue size
+ *    Revision 1.5  1999/09/14 15:17:54  hill
+ *    increased queue size
  *
- * 	Revision 1.4  1998/02/11 23:26:08  aptdvl
- * 	1st production release
+ *    Revision 1.4  1998/02/11 23:26:08  aptdvl
+ *    1st production release
  *
  * Revision 1.4  1995/09/08  20:27:57  jhill
  * dont copy all unused bytes in buffer optimization
@@ -63,37 +63,37 @@
  * installed into cvs
  *
  *
- * 	FUNCTIONAL REQUIREMENTS
+ *    FUNCTIONAL REQUIREMENTS
  *
- * .01	This source will shield applications from the complexities
- *	of non-blocking io. The database scan tasks must not be blocked
- *	by system io calls. Instead, the tasks created by this source
- *	are allowed to block.
+ * .01   This source will shield applications from the complexities
+ *   of non-blocking io. The database scan tasks must not be blocked
+ *   by system io calls. Instead, the tasks created by this source
+ *   are allowed to block.
  *
  * .02  This source will provide for framing of the input
- *	stream into individual messages from the attached serial devices 
- *	to higher level applications.
+ *   stream into individual messages from the attached serial devices 
+ *   to higher level applications.
  *
- * .03 	This source shall will detect when the link goes down and
- * 	periodically attempt to restart the link if it is down.
+ * .03    This source shall will detect when the link goes down and
+ *    periodically attempt to restart the link if it is down.
  *
- * .04	This source will provide for multi-priority request queuing
- *	so that higher priority requests are processed first when
- *	communicating with slow devices
+ * .04   This source will provide for multi-priority request queuing
+ *   so that higher priority requests are processed first when
+ *   communicating with slow devices
  *
  * NOTES:
  *
- * .01 	I do _not_ turn off stdio buffering here because an fflush()
- *	call is made each time that the request queue is drained. 
- *	Therefore stdio buffer should not disable priority based 
- *	request queuing.
+ * .01    I do _not_ turn off stdio buffering here because an fflush()
+ *   call is made each time that the request queue is drained. 
+ *   Therefore stdio buffer should not disable priority based 
+ *   request queuing.
  *
- * .02	I open two file streams (one for the read task and one for 
- *	the write task). WRS indicates that file pointers should 
- *	be private to individual tasks because the stdio library isnt 
- *	thread safe. This requires two file descriptors on one device 
- *	(one for reading only and one for writing only). I suspect 
- *	that most vxWorks serial device drivers will support this.
+ * .02   I open two file streams (one for the read task and one for 
+ *   the write task). WRS indicates that file pointers should 
+ *   be private to individual tasks because the stdio library isnt 
+ *   thread safe. This requires two file descriptors on one device 
+ *   (one for reading only and one for writing only). I suspect 
+ *   that most vxWorks serial device drivers will support this.
  *  When the connection is reset then I use FIOCANCEL ioctl on the
  *  read/write file descriptors involved in order to force both 
  *  tasks to reopen their files.
@@ -106,7 +106,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
-#include <sys/ioctl.h>
+//#include <sys/ioctl.h>
 #include <errno.h>
 #include <sys/termios.h>
 
@@ -125,7 +125,7 @@
 #include "epicsExport.h"
 #include "iocsh.h"
 
-#include <ellLib.h>		/* requires stdlib.h */
+#include <ellLib.h>      /* requires stdlib.h */
 #include <drvSup.h>
 #include <bucketLib.h>
 #include <freeList.h>
@@ -134,6 +134,7 @@
  * by dbAccess.h
  */
 
+#define TEST_DRV_SERIAL
 
 
 #if 0
@@ -214,11 +215,11 @@ typedef enum            /* SEM_B_STATE */
  * task creation options
  */
 #if 0
-#define tp_drvSerialPriority 55 	
-#define tp_drvSerialStackSize 0x1000	/* 4096 */
+#define tp_drvSerialPriority 55    
+#define tp_drvSerialStackSize 0x1000   /* 4096 */
 #endif 
 
-#define tp_drvSerialPriority  epicsThreadPriorityMedium	
+#define tp_drvSerialPriority  epicsThreadPriorityMedium   
 #define tp_drvSerialStackSize epicsThreadGetStackSize(epicsThreadStackMedium)
 
 /*
@@ -230,13 +231,13 @@ typedef enum            /* SEM_B_STATE */
 
 typedef enum {dsReq, dsRes, dsResv, dsLimbo, dsFree}dsQueue;
 typedef struct {
-	ELLNODE node;
-	union {
-		drvSerialResponse res;
-		drvSerialRequest req;
-	}shr;
-	char queue;
-	char pri;
+   ELLNODE node;
+   union {
+      drvSerialResponse res;
+      drvSerialRequest req;
+   }shr;
+   char queue;
+   char pri;
 }freeListItem;
 
 
@@ -247,25 +248,25 @@ typedef struct {
  */
 typedef struct drvSerialParmTag
 {
-	ELLNODE node;
-	char pName[512];
-	epicsMutexId mutexSem;
-	epicsEventId writeQueueSem;
-	epicsEventId readQueueSem;
-	ELLLIST requestQueues[dspHighest - dspLowest + 1];
-	ELLLIST reserveQueues[dspHighest - dspLowest + 1];
-	ELLLIST respQueue;
-	ELLLIST	limboQueue; 
-	drvSerialParseInput *pInputParser;
-	void *pFreeListPVT;
-	void *pAppPrivate;
-	FILE *pRF; /* only touched by the read task */
-	FILE *pWF; /* only touched by the write task */
-	ELLLIST *pHighestPriReqQue;
-	epicsThreadId rdTaskId;
-	epicsThreadId wtTaskId;
-	unsigned readCanceled:1;
-	unsigned writeCanceled:1;
+   ELLNODE node;
+   char pName[512];
+   epicsMutexId mutexSem;
+   epicsEventId writeQueueSem;
+   epicsEventId readQueueSem;
+   ELLLIST requestQueues[dspHighest - dspLowest + 1];
+   ELLLIST reserveQueues[dspHighest - dspLowest + 1];
+   ELLLIST respQueue;
+   ELLLIST   limboQueue; 
+   drvSerialParseInput *pInputParser;
+   void *pFreeListPVT;
+   void *pAppPrivate;
+   FILE *pRF; /* only touched by the read task */
+   FILE *pWF; /* only touched by the write task */
+   ELLLIST *pHighestPriReqQue;
+   epicsThreadId rdTaskId;
+   epicsThreadId wtTaskId;
+   unsigned readCanceled:1;
+   unsigned writeCanceled:1;
 } drvSerialParm;
 
 /*
@@ -273,10 +274,10 @@ typedef struct drvSerialParmTag
  */
 struct
 {
-	char tmpName[512];
-	ELLLIST list;
-	epicsMutexId lock;
-	BUCKET *pBucket;
+   char tmpName[512];
+   ELLLIST list;
+   epicsMutexId lock;
+   BUCKET *pBucket;
 } devNameTbl;
 
 /*
@@ -286,32 +287,24 @@ typedef long drvInitFunc_t(void);
 typedef long drvSerialReport_t(int level);
 drvSerialReport_t drvSerialReport;
 drvInitFunc_t drvSerialInit;
-/*
-struct
-{
-	long number;
-	drvSerialReport_t *report;
-	drvInitFunc_t *init;
-} drvSerial =
-*/
 
 struct
 {
-	long number;
-	DRVSUPFUN report;
-	DRVSUPFUN init;
+   long number;
+   DRVSUPFUN report;
+   DRVSUPFUN init;
 } drvSerial =
 {
-	2L,
-	drvSerialReport,
-	drvSerialInit
+   2L,
+   drvSerialReport,
+   drvSerialInit
 };
 
 epicsExportAddress (drvet, drvSerial);
 
-freeListItem 	*drvSerialFetchFreeItem (drvSerialParm *pDev);
+freeListItem    *drvSerialFetchFreeItem (drvSerialParm *pDev);
 void drvSerialDisposeFreeItem (drvSerialParm *pDev, 
-				freeListItem * pItem);
+            freeListItem * pItem);
 void drvSerialLinkReset (drvSerialParm * pDev);
 int sendAllRequests (drvSerialParm *pDev);
 drvSerialParm *drvSerialTestExist (const char *pName);
@@ -321,101 +314,132 @@ int drvSerialRead (drvSerialParm * pDev);
 freeListItem *fetchHighestPriorityRequest (drvSerialParm *pDev);
 
 void drvSerialCopyResponse(
-	drvSerialResponse *pDest, 
-	const drvSerialResponse *pSrc);
+   drvSerialResponse *pDest, 
+   const drvSerialResponse *pSrc);
 void drvSerialCopyRequest(
-	drvSerialRequest *pDest, 
-	const drvSerialRequest *pSrc);
+   drvSerialRequest *pDest, 
+   const drvSerialRequest *pSrc);
 
 #ifdef TEST_DRV_SERIAL
 void drvSerialTest(const char *pName);
 int drvSerialTestParser (FILE *pf, drvSerialResponse *pResp, 
-				void *pAppPrivate);
+            void *pAppPrivate);
 int drvSerialTestXmit (FILE *pf, drvSerialRequest *pReq);
-
-int drvSerialAlive = 0;
-
-
+static void drvSerialSetDebug (const iocshArgBuf *);
+static int drvSerialDebug = 0;
 
 static const iocshArg intArg0 = {"blockSize", iocshArgInt};
 static const iocshArg * const intArg[1] = {&intArg0};
-
-static const iocshFuncDef drvSerialDebugDef = {"drvSerialDebug",  1,  intArg};
-
+static const iocshFuncDef drvSerialDebugDef = {"drvSerialSetDebug",  1,  intArg};
 static void drvSerialSetDebug (const iocshArgBuf *args)
 {
   drvSerialDebug = args[0].ival;
   printf ("drvSerialSetDebug: Setting debug level %d\n", drvSerialDebug);
 }
 
-void epicsShareAPI drvSerialRegister(void)
+
+static const iocshArg drvSerialTestArg0 = {"portname", iocshArgString};
+static const iocshArg * const drvSerialTestArgs[] = {&drvSerialTestArg0};
+static const iocshFuncDef drvSerialTestFuncDef = {"drvSerialTest",  1,  drvSerialTestArgs};
+static void drvSerialTestCallFunc(const iocshArgBuf *args )
 {
-  iocshRegister (&drvSerialDebugDef, drvSerialSetDebug);
+   drvSerialTest(args[0].sval);
 }
 
+static void drvSerialTestRegisterCommands(void)
+{
+   static int firstTime = 1;
+   if (firstTime) {
+      iocshRegister (&drvSerialDebugDef, drvSerialSetDebug);
+      iocshRegister(&drvSerialTestFuncDef, drvSerialTestCallFunc);
+      firstTime = 0;
+   }
+}
+epicsExportRegistrar(drvSerialTestRegisterCommands);
 
 
 
 /*
  * drvSerialTest ()
  */
-void drvSerialTest (const char *pName)
+void drvSerialTestThread (const char *pName)
 {
-	drvSerialLinkId id;
-	drvSerialRequest req;
-	int status;
+   drvSerialLinkId id;
+   drvSerialRequest req;
+   int status;
+   int i;
 
-	status = drvSerialInit();
-	assert (status==OK);
+   status = drvSerialInit();
+   assert (status==OK);
 
-	status = drvSerialCreateLink(pName, 	
-			drvSerialTestParser,NULL,&id);
-	assert (status==OK);
+   status = drvSerialCreateLink(pName,    
+         drvSerialTestParser,NULL,&id);
+   assert (status==OK);
 
-	memset(&req, '\0', sizeof(req));
-	strcpy((char *)req.buf, "Test Test\n");
-	req.bufCount = strlen((char *)req.buf);
-	req.pCB = drvSerialTestXmit;
+   memset(&req, '\0', sizeof(req));
+   strcpy((char *)req.buf, "Test Test\r\n");
+   strcpy((char *)req.buf, "Test Test\r\n");
+   req.bufCount = strlen((char *)req.buf);
+   req.pCB = drvSerialTestXmit;
 
-	while (TRUE) {
-		status = drvSerialSendRequest (id, dspLow, &req);
-		if (	status != S_drvSerial_OK && 
-			status != S_drvSerial_queueFull &&
-			status != S_drvSerial_linkDown) {
-			errMessage(status, NULL);
-		}
-		WAIT_N_SEC(10);
-	}
+   for(i=0; i<5; ++i) {
+      status = drvSerialSendRequest (id, dspLow, &req);
+      sprintf((char *)req.buf, "Test Test:%d\r\n", i);
+      req.bufCount = strlen((char *)req.buf);
+      if (   status != S_drvSerial_OK && 
+         status != S_drvSerial_queueFull &&
+         status != S_drvSerial_linkDown) {
+         errMessage(status, "");
+      }
+      WAIT_N_SEC(10);
+   }
 }
 
 int drvSerialTestXmit (FILE *pf, drvSerialRequest *pReq)
 {
-	unsigned char *pBuf;
-	int s=0;
+   char *pBuf;
+   int s=0;
 
-	for (pBuf=pReq->buf; pBuf<&pReq->buf[pReq->bufCount]; pBuf++) {
-		s = putc(*pBuf, pf);
-		if (s == EOF) {
-			break;
-		}
-	}
-	return s;
+   for (pBuf=pReq->buf; pBuf<&pReq->buf[pReq->bufCount]; pBuf++) {
+      s = putc(*pBuf, pf);
+      if (s == EOF) {
+         break;
+      }
+   }
+   return s;
 }
 
 int drvSerialTestParser (FILE *pf, drvSerialResponse *pResp, 
-				void *pAppPrivate)
+            void *pAppPrivate)
 {
-	int c;
+   char  *pBuf = pResp->buf; 
+   char c;
 
-	while ( (c=getc(pf))!=EOF) {
-#		if 0
-			putc(c, stdout);
-#		endif		
-	}
-	return c;
+    pResp->bufCount = 0; 
+
+    while ((c = getc (pf)) != '\n') { 
+        *(pBuf++) = c; 
+        pResp->bufCount++; 
+    } 
+printf("%s", pBuf);
+
+    return (pResp->bufCount); 
 }
 
-#endif
+
+
+epicsThreadId dstThread;
+void drvSerialTest(const char *portname) {
+   if(!dstThread) {
+      dstThread = epicsThreadCreate("drvSerial Test",
+                                     epicsThreadPriorityMedium,
+                                     epicsThreadGetStackSize(epicsThreadStackMedium),
+                                     drvSerialTestThread,
+                                     (void *)portname);
+   }
+}
+
+#endif    // TEST_DRV_SERIAL
 
 /*
  * drvSerialCopyRequest()
@@ -427,10 +451,10 @@ void drvSerialCopyRequest(
 drvSerialRequest *pDest, 
 const drvSerialRequest *pSrc)
 {
-	pDest->pCB = pSrc->pCB;
-	pDest->pAppPrivate = pSrc->pAppPrivate;
-	pDest->bufCount = pSrc->bufCount;
-	memcpy (pDest->buf, pSrc->buf, pSrc->bufCount);
+   pDest->pCB = pSrc->pCB;
+   pDest->pAppPrivate = pSrc->pAppPrivate;
+   pDest->bufCount = pSrc->bufCount;
+   memcpy (pDest->buf, pSrc->buf, pSrc->bufCount);
 }
 
 /*
@@ -443,9 +467,9 @@ void drvSerialCopyResponse(
 drvSerialResponse *pDest, 
 const drvSerialResponse *pSrc)
 {
-	pDest->pAppPrivate = pSrc->pAppPrivate;
-	pDest->bufCount = pSrc->bufCount;
-	memcpy (pDest->buf, pSrc->buf, pSrc->bufCount);
+   pDest->pAppPrivate = pSrc->pAppPrivate;
+   pDest->bufCount = pSrc->bufCount;
+   memcpy (pDest->buf, pSrc->buf, pSrc->bufCount);
 }
 
 /*
@@ -453,43 +477,43 @@ const drvSerialResponse *pSrc)
  */
 long drvSerialInit (void)
 {
-	long            status;
+   long            status;
 
-	/*
-	 * dont init twice
-	 */
-	if (devNameTbl.lock) {
+   /*
+    * dont init twice
+    */
+   if (devNameTbl.lock) {
             epicsPrintf ("%s line %d drvSerialInit already called\n",
                          __FILE__,__LINE__ );
-		return S_drvSerial_OK;
-	}
+      return S_drvSerial_OK;
+   }
 
-	/*
-	 * create a hash table for the file 
-	 * name strings and associated MUTEX
-	 */
-	devNameTbl.lock = epicsMutexCreate();
-	if (!devNameTbl.lock)
-	{
-		status = S_db_noMemory;
-		errMessage(status,
-			   ":drvSerialInit() epicsMutexOsdCreate()");
-		return status;
-	}
+   /*
+    * create a hash table for the file 
+    * name strings and associated MUTEX
+    */
+   devNameTbl.lock = epicsMutexCreate();
+   if (!devNameTbl.lock)
+   {
+      status = S_db_noMemory;
+      errMessage(status,
+            ":drvSerialInit() epicsMutexOsdCreate()");
+      return status;
+   }
 
-	devNameTbl.pBucket = bucketCreate(256);
-	if (!devNameTbl.pBucket)
-	{
-		status = S_db_noMemory;
-		errMessage(status,
-			   ":drvSerialInit() bucketCreate()");
-		epicsMutexDestroy(devNameTbl.lock);
-		return status;
-	}
+   devNameTbl.pBucket = bucketCreate(256);
+   if (!devNameTbl.pBucket)
+   {
+      status = S_db_noMemory;
+      errMessage(status,
+            ":drvSerialInit() bucketCreate()");
+      epicsMutexDestroy(devNameTbl.lock);
+      return status;
+   }
 
         epicsPrintf ("%s line %d drvSerialInit was successful (%d)\n",
                      __FILE__,__LINE__,S_drvSerial_OK );
-	return S_drvSerial_OK;
+   return S_drvSerial_OK;
 }
 
 /*
@@ -498,8 +522,8 @@ long drvSerialInit (void)
 long
 drvSerialReport(int level)
 {
-  drvSerialParm  		*pDev;
-  drvSerialPriority	pri;
+  drvSerialParm        *pDev;
+  drvSerialPriority   pri;
 
   if (devNameTbl.pBucket)
     {
@@ -507,37 +531,37 @@ drvSerialReport(int level)
 
       pDev = (drvSerialParm *) ellFirst(&devNameTbl.list);
       while (pDev)
-	{
-	  printf("\tDevice Name =%s\n", pDev->pName);
-	  if (level > 0)
-	    {
-	      printf("\t\tRequest Queue\n");
-	      for (pri = dspLowest; pri <= dspHighest; pri++)
-		{
-		  printf(
-			 "\t\t\tPri=%d Pending=%d Reserved=%d\n",
-			 pri,
-			 ellCount(&pDev->requestQueues[pri-dspLowest]),
-			 ellCount(&pDev->reserveQueues[pri-dspLowest])
-			 );
-		}
-	      printf("\t\tResponse Q cnt=%d\n",
-		     ellCount(&pDev->respQueue));
-	    }
-	  if (level > 3) {
-	    printf("\t\tmutexSem ");
-	    epicsMutexShow(pDev->mutexSem, level);
-	    printf("\t\twriteQueueSem");
-	    epicsEventShow(pDev->writeQueueSem, level);
-	    printf("\t\treadQueueSem");
-	    epicsEventShow(pDev->readQueueSem, level);
-	  }
-	  pDev = (drvSerialParm *) ellNext(&pDev->node);
-	}
+   {
+     printf("\tDevice Name =%s\n", pDev->pName);
+     if (level > 0)
+       {
+         printf("\t\tRequest Queue\n");
+         for (pri = dspLowest; pri <= dspHighest; pri++)
+      {
+        printf(
+          "\t\t\tPri=%d Pending=%d Reserved=%d\n",
+          pri,
+          ellCount(&pDev->requestQueues[pri-dspLowest]),
+          ellCount(&pDev->reserveQueues[pri-dspLowest])
+          );
+      }
+         printf("\t\tResponse Q cnt=%d\n",
+           ellCount(&pDev->respQueue));
+       }
+     if (level > 3) {
+       printf("\t\tmutexSem ");
+       epicsMutexShow(pDev->mutexSem, level);
+       printf("\t\twriteQueueSem");
+       epicsEventShow(pDev->writeQueueSem, level);
+       printf("\t\treadQueueSem");
+       epicsEventShow(pDev->readQueueSem, level);
+     }
+     pDev = (drvSerialParm *) ellNext(&pDev->node);
+   }
       if (level > 2)
-	{
-	  bucketShow(devNameTbl.pBucket);
-	}
+   {
+     bucketShow(devNameTbl.pBucket);
+   }
       
       epicsMutexUnlock(devNameTbl.lock);
     }
@@ -550,43 +574,43 @@ drvSerialReport(int level)
  */
 long
 drvSerialAttachLink(
-		    const char *pName,
-		    drvSerialParseInput *pParser,
-		    void **ppAppPrivate
+          const char *pName,
+          drvSerialParseInput *pParser,
+          void **ppAppPrivate
 )
 {
 
-	drvSerialParm  *pDev;
+   drvSerialParm  *pDev;
 
-	if (!pParser) {
-		return S_drvSerial_noParser;
-	}
+   if (!pParser) {
+      return S_drvSerial_noParser;
+   }
 
-	/*
-	 * lazy init
-	 */
-	if (!devNameTbl.lock) {
-		long status;
-		status = drvSerialInit ();
-		if (status) {
-			return status;
-		}
-	}
+   /*
+    * lazy init
+    */
+   if (!devNameTbl.lock) {
+      long status;
+      status = drvSerialInit ();
+      if (status) {
+         return status;
+      }
+   }
 
-	pDev = drvSerialTestExist(pName);
-	if (pDev) {
-		/*
-		 * check for in use by another app
-		 */
-		if (pDev->pInputParser != pParser) {
-			return S_drvSerial_linkInUse;
-		}
-		*ppAppPrivate = pDev->pAppPrivate;
-		return S_drvSerial_OK;
-	}
-	else {
-		return S_drvSerial_noneAttached;
-	}
+   pDev = drvSerialTestExist(pName);
+   if (pDev) {
+      /*
+       * check for in use by another app
+       */
+      if (pDev->pInputParser != pParser) {
+         return S_drvSerial_linkInUse;
+      }
+      *ppAppPrivate = pDev->pAppPrivate;
+      return S_drvSerial_OK;
+   }
+   else {
+      return S_drvSerial_noneAttached;
+   }
 }
 
 /*
@@ -594,33 +618,33 @@ drvSerialAttachLink(
  */
 drvSerialParm *drvSerialTestExist(const char *pName)
 {
-	drvSerialParm  *pDev;
+   drvSerialParm  *pDev;
 
-	/*
-	 * no init chk 
-	 */
-	if (!devNameTbl.pBucket)
-	{
-		long epicsStatus;
-		epicsStatus = drvSerialInit ();
-		if (epicsStatus) {
-			return NULL;
-		}
-	}
+   /*
+    * no init chk 
+    */
+   if (!devNameTbl.pBucket)
+   {
+      long epicsStatus;
+      epicsStatus = drvSerialInit ();
+      if (epicsStatus) {
+         return NULL;
+      }
+   }
 
-	/*
-	 * MUTEX around use of hash table 
-	 */
-	epicsMutexMustLock( devNameTbl.lock );
+   /*
+    * MUTEX around use of hash table 
+    */
+   epicsMutexMustLock( devNameTbl.lock );
 
-	pDev = (drvSerialParm *) bucketLookupItemStringId(
-					  devNameTbl.pBucket, pName);
-	/*
-	 * MUTEX off around use of hash table 
-	 */
-	epicsMutexUnlock(devNameTbl.lock);
+   pDev = (drvSerialParm *) bucketLookupItemStringId(
+                 devNameTbl.pBucket, pName);
+   /*
+    * MUTEX off around use of hash table 
+    */
+   epicsMutexUnlock(devNameTbl.lock);
 
-	return pDev;
+   return pDev;
 }
 
 /*
@@ -628,164 +652,164 @@ drvSerialParm *drvSerialTestExist(const char *pName)
  */
 long
 drvSerialCreateLink(
-		    const char *pName,
-		    drvSerialParseInput *pParser,
-		    void *pAppPrivate,
-		    drvSerialLinkId * pId
+          const char *pName,
+          drvSerialParseInput *pParser,
+          void *pAppPrivate,
+          drvSerialLinkId * pId
 )
 {
-	drvSerialParm  		*pDev;
-	long            	status;
-	drvSerialPriority	pri;
+   drvSerialParm        *pDev;
+   long               status;
+   drvSerialPriority   pri;
 
-	if (!pParser) {
-		return S_drvSerial_noParser;
-	}
+   if (!pParser) {
+      return S_drvSerial_noParser;
+   }
 
-	/*
-	 * verify a hash table for the file name strings and associated MUTEX
-	 * was initialized in drvSerialInit()
-	 */
-	if (!devNameTbl.pBucket)
-	{
-		long epicsStatus;
-		epicsStatus = drvSerialInit ();
-		if (epicsStatus) {
-			return epicsStatus;
-		}
-	}
+   /*
+    * verify a hash table for the file name strings and associated MUTEX
+    * was initialized in drvSerialInit()
+    */
+   if (!devNameTbl.pBucket)
+   {
+      long epicsStatus;
+      epicsStatus = drvSerialInit ();
+      if (epicsStatus) {
+         return epicsStatus;
+      }
+   }
 
-	pDev = drvSerialTestExist (pName);
+   pDev = drvSerialTestExist (pName);
 
-	if (pDev)
-	{
-		return S_drvSerial_linkInUse;
-	}
+   if (pDev)
+   {
+      return S_drvSerial_linkInUse;
+   }
 
-	pDev = (drvSerialParm *) calloc (1, sizeof(*pDev));
-	if (!pDev)
-	{
-	        status = S_db_noMemory;
-		errMessage(status, ":drvSerialCreateLink() calloc()");
-		return status;
-	}
+   pDev = (drvSerialParm *) calloc (1, sizeof(*pDev));
+   if (!pDev)
+   {
+           status = S_db_noMemory;
+      errMessage(status, ":drvSerialCreateLink() calloc()");
+      return status;
+   }
 
-	/*
-	 * create free list for messages
-	 * (preallocate all of them)
-	 */
-	freeListInitPvt (&pDev->pFreeListPVT, sizeof(freeListItem), 
-				requestQueueQuota+responseQueueQuota);
+   /*
+    * create free list for messages
+    * (preallocate all of them)
+    */
+   freeListInitPvt (&pDev->pFreeListPVT, sizeof(freeListItem), 
+            requestQueueQuota+responseQueueQuota);
 
-	pDev->pInputParser = pParser;
-	pDev->pAppPrivate = pAppPrivate;
-	pDev->readCanceled = FALSE;
-	pDev->writeCanceled = FALSE;
+   pDev->pInputParser = pParser;
+   pDev->pAppPrivate = pAppPrivate;
+   pDev->readCanceled = FALSE;
+   pDev->writeCanceled = FALSE;
 
-	/*
-	 * MUTEX around use of hash table 
-	 */
-	epicsMutexMustLock( devNameTbl.lock );
+   /*
+    * MUTEX around use of hash table 
+    */
+   epicsMutexMustLock( devNameTbl.lock );
 
-	/*
-	 * Add entry for this file into the hash table
-	 */
-	assert (strlen(pName) < sizeof(pDev->pName) - 1);
-	strcpy(pDev->pName, pName);
-	status = bucketAddItemStringId(
-				       devNameTbl.pBucket,
-				       pDev->pName,
-				       pDev);
-	if (status)
-	{
-		status = S_db_noMemory;
-		errMessage(status, "bucketAddItemStringId()");
-		free(pDev);
-		epicsMutexUnlock(devNameTbl.lock);
-		return status;
-	}
+   /*
+    * Add entry for this file into the hash table
+    */
+   assert (strlen(pName) < sizeof(pDev->pName) - 1);
+   strcpy(pDev->pName, pName);
+   status = bucketAddItemStringId(
+                   devNameTbl.pBucket,
+                   pDev->pName,
+                   pDev);
+   if (status)
+   {
+      status = S_db_noMemory;
+      errMessage(status, "bucketAddItemStringId()");
+      free(pDev);
+      epicsMutexUnlock(devNameTbl.lock);
+      return status;
+   }
 
-	/*
-	 * MUTEX off around use of hash table 
-	 */
-	epicsMutexUnlock(devNameTbl.lock);
+   /*
+    * MUTEX off around use of hash table 
+    */
+   epicsMutexUnlock(devNameTbl.lock);
 
-	pDev->readQueueSem = epicsEventCreate(epicsEventEmpty);
-	if (pDev->readQueueSem == NULL)
-	{
-		bucketRemoveItemStringId(devNameTbl.pBucket, pDev->pName);
-		free(pDev);
-		status = S_db_noMemory;
-		errMessage(status,
-			   ":drvSerialCreateLink() epicsEventCreate()");
-		return status;
-	}
-	pDev->writeQueueSem = epicsEventCreate(epicsEventEmpty);
+   pDev->readQueueSem = epicsEventCreate(epicsEventEmpty);
+   if (pDev->readQueueSem == NULL)
+   {
+      bucketRemoveItemStringId(devNameTbl.pBucket, pDev->pName);
+      free(pDev);
+      status = S_db_noMemory;
+      errMessage(status,
+            ":drvSerialCreateLink() epicsEventCreate()");
+      return status;
+   }
+   pDev->writeQueueSem = epicsEventCreate(epicsEventEmpty);
 
-	if (pDev->writeQueueSem == NULL)
-	{
-		epicsEventDestroy(pDev->readQueueSem);
-		bucketRemoveItemStringId(devNameTbl.pBucket, pDev->pName);
-		free(pDev);
-		status = S_db_noMemory;
-		errMessage(status,
-			   ":drvSerialCreateLink() epicsEventCreate()");
-		return status;
-	}
-	pDev->mutexSem = epicsMutexCreate();
-	if (pDev->mutexSem == NULL)
-	{
-		epicsEventDestroy(pDev->readQueueSem);
-		epicsEventDestroy(pDev->writeQueueSem);
-		bucketRemoveItemStringId(devNameTbl.pBucket, pDev->pName);
-		free(pDev);
-		status = S_db_noMemory;
-		errMessage(status,
-			   ":drvSerialCreateLink() epicsMutexOsdCreate()");
-		return status;
-	}
+   if (pDev->writeQueueSem == NULL)
+   {
+      epicsEventDestroy(pDev->readQueueSem);
+      bucketRemoveItemStringId(devNameTbl.pBucket, pDev->pName);
+      free(pDev);
+      status = S_db_noMemory;
+      errMessage(status,
+            ":drvSerialCreateLink() epicsEventCreate()");
+      return status;
+   }
+   pDev->mutexSem = epicsMutexCreate();
+   if (pDev->mutexSem == NULL)
+   {
+      epicsEventDestroy(pDev->readQueueSem);
+      epicsEventDestroy(pDev->writeQueueSem);
+      bucketRemoveItemStringId(devNameTbl.pBucket, pDev->pName);
+      free(pDev);
+      status = S_db_noMemory;
+      errMessage(status,
+            ":drvSerialCreateLink() epicsMutexOsdCreate()");
+      return status;
+   }
 
-	for (pri = dspLowest; pri <= dspHighest; pri++)
-	{
-		unsigned index;
+   for (pri = dspLowest; pri <= dspHighest; pri++)
+   {
+      unsigned index;
 
-		index = pri - dspLowest;
-		assert (index < NELEMENTS(pDev->requestQueues));
-		ellInit(&pDev->requestQueues[index]);
-		ellInit(&pDev->reserveQueues[index]);
-	}
-	pDev->pHighestPriReqQue = NULL; /* no req queue populated */
+      index = pri - dspLowest;
+      assert (index < NELEMENTS(pDev->requestQueues));
+      ellInit(&pDev->requestQueues[index]);
+      ellInit(&pDev->reserveQueues[index]);
+   }
+   pDev->pHighestPriReqQue = NULL; /* no req queue populated */
 
-	ellInit (&pDev->respQueue);
-	ellInit (&pDev->limboQueue);
+   ellInit (&pDev->respQueue);
+   ellInit (&pDev->limboQueue);
 
-	/*
-	 * MUTEX around use of hash table 
-	 */
-	epicsMutexMustLock( devNameTbl.lock );
+   /*
+    * MUTEX around use of hash table 
+    */
+   epicsMutexMustLock( devNameTbl.lock );
 
-	ellAdd (&devNameTbl.list, &pDev->node);
+   ellAdd (&devNameTbl.list, &pDev->node);
 
-	/*
-	 * MUTEX off around use of hash table 
-	 */
-	epicsMutexUnlock(devNameTbl.lock);
+   /*
+    * MUTEX off around use of hash table 
+    */
+   epicsMutexUnlock(devNameTbl.lock);
 
-	status = drvSerialLinkOpen (pDev);
-	if (status) {
-		epicsEventDestroy(pDev->readQueueSem);
-		epicsEventDestroy(pDev->writeQueueSem);
-		bucketRemoveItemStringId(devNameTbl.pBucket, pDev->pName);
-		free(pDev);
-		return status;
-	}
+   status = drvSerialLinkOpen (pDev);
+   if (status) {
+      epicsEventDestroy(pDev->readQueueSem);
+      epicsEventDestroy(pDev->writeQueueSem);
+      bucketRemoveItemStringId(devNameTbl.pBucket, pDev->pName);
+      free(pDev);
+      return status;
+   }
 
-	/*
-	 * set their handle to this serial link
-	 */
-	*pId = (void *) pDev;
+   /*
+    * set their handle to this serial link
+    */
+   *pId = (void *) pDev;
 
-	return S_drvSerial_OK;
+   return S_drvSerial_OK;
 }
 
 /*
@@ -794,91 +818,92 @@ drvSerialCreateLink(
  */
 int drvSerialWrite (drvSerialParm * pDev)
 {
-	int status;
+   int status;
         int delay = 0;
-	struct termios termios;
-	int fd;
+   struct termios termios;
+   int fd;
 
         /*
-	 *  Wait for the read task to start. If it doesn't within 
-	 *  a few seconds then this task must terminate.
-	 */
+    *  Wait for the read task to start. If it doesn't within 
+    *  a few seconds then this task must terminate.
+    */
         do {
 
-	  WAIT_N_SEC( 1 );
+     WAIT_N_SEC( 1 );
 
-	  if ( !pDev->readCanceled ) break;
+     if ( !pDev->readCanceled ) break;
 
-	  if ( ++delay > 10 ) {
+     if ( ++delay > 10 ) {
 
-	    errMessage(S_drvSerial_linkDown,"Read task never started!" );
-	    epicsPrintf ("%s.%d read task never started for %s",
-			 __FILE__,__LINE__,pDev->pName );
-	    exit(-1);
-	  }
+       errMessage(S_drvSerial_linkDown,"Read task never started!" );
+       epicsPrintf ("%s.%d read task never started for %s",
+          __FILE__,__LINE__,pDev->pName );
+       exit(-1);
+     }
 
-	} while ( 1 );
+   } while ( 1 );
 
-	while (TRUE)
-	{
-		status = epicsEventWaitWithTimeout(pDev->writeQueueSem, 
-						   (double) WAIT_FOREVER);
+   while (TRUE)
+   {
+      status = epicsEventWaitWithTimeout(pDev->writeQueueSem, 
+                     (double) WAIT_FOREVER);
                 /* epicsPrintf( "drvSerialWrite - epicsEventWaitWithTimeout return = %d\n", status ); */
-		assert (status == epicsEventWaitOK);
+      assert (status == epicsEventWaitOK);
 
-		while (!pDev->pWF) {
-			pDev->pWF = fopen (pDev->pName, "w");
-			if (pDev->pWF) {
-				pDev->writeCanceled = FALSE;
-				break;
-			}
-			fd = fileno(pDev->pWF);
-			printf (" drvSerialWrite - setting termios for (%d) \n", fd);
-			tcgetattr (fd, &termios);
-			printf ("termios.c_iflag = [%o]\n", termios.c_iflag);
-			printf ("termios.c_oflag = [%o]\n", termios.c_oflag);
-			printf ("termios.c_cflag = [%o]\n", termios.c_cflag);
-			printf ("termios.c_lflag = [%o]\n", termios.c_lflag);
-			termios.c_lflag = 0;
-			termios.c_cc[VTIME] = 0;
-			termios.c_cc[VMIN] = 1;
-			termios.c_cc[VSTOP] = 0;
-			termios.c_cc[VSTART] = 0;
-			termios.c_cc[VREPRINT] = 0;
-			tcflush (fd, TCIFLUSH);
-			tcsetattr(fd, TCSANOW, &termios);
-			WAIT_N_SEC (10);
-		}
+      while (!pDev->pWF) {
+         pDev->pWF = fopen (pDev->pName, "w");
+         if (pDev->pWF) {
+            pDev->writeCanceled = FALSE;
+            break;
+         }
+         fd = fileno(pDev->pWF);
+         printf (" drvSerialWrite - setting termios for (%d) \n", fd);
+         tcgetattr (fd, &termios);
+         printf ("termios.c_iflag = [%o]\n", termios.c_iflag);
+         printf ("termios.c_oflag = [%o]\n", termios.c_oflag);
+         printf ("termios.c_cflag = [%o]\n", termios.c_cflag);
+         printf ("termios.c_lflag = [%o]\n", termios.c_lflag);
+         termios.c_lflag = 0;
+         termios.c_cc[VTIME] = 0;
+         termios.c_cc[VMIN] = 1;
+         termios.c_cc[VSTOP] = 0;
+         termios.c_cc[VSTART] = 0;
+         termios.c_cc[VREPRINT] = 0;
+         tcflush (fd, TCIFLUSH);
+         tcsetattr(fd, TCSANOW, &termios);
+         WAIT_N_SEC (10);
+      }
 
-		status = sendAllRequests (pDev);
-		if (status<0) {
-		  /* epicsPrintf( "drvSerialWrite - drvSerialLinkReset\n"); */
-			drvSerialLinkReset (pDev);
-			fclose (pDev->pWF);
-			pDev->pWF = NULL;
-			/*
-			 * go ahead and reopen the file
-			 */
-			epicsEventSignal(pDev->writeQueueSem);
-		}
-		else {
-		  /*
-		   * flush out the serial driver so that high priority events
-		   * are allowed to jump to the front of the queue
-		   * 
-		   * Under vxWorks this flushes stdio to the the write (driver)
-		   * level where characters might still be accumulating. We
-		   * prefer to accumulate in our buffers in this source so that
-		   * high priority requests are allowed to jump to the front of
-		   * the queue. However there is no standard way to do this via
-		   * ioctl(). Note that under vxWorks FIOFLUSH discards the
-		   * characters in tyLib.c instead of blocking the task until
-		   * the characters are delivered to the link as I would
-		   * expect
-		   */
-			fflush (pDev->pWF);
-		}
-	}
+      status = sendAllRequests (pDev);
+      if (status<0) {
+        /* epicsPrintf( "drvSerialWrite - drvSerialLinkReset\n"); */
+         drvSerialLinkReset (pDev);
+         fclose (pDev->pWF);
+         pDev->pWF = NULL;
+         /*
+          * go ahead and reopen the file
+          */
+         epicsEventSignal(pDev->writeQueueSem);
+      }
+      else {
+        /*
+         * flush out the serial driver so that high priority events
+         * are allowed to jump to the front of the queue
+         * 
+         * Under vxWorks this flushes stdio to the the write (driver)
+         * level where characters might still be accumulating. We
+         * prefer to accumulate in our buffers in this source so that
+         * high priority requests are allowed to jump to the front of
+         * the queue. However there is no standard way to do this via
+         * ioctl(). Note that under vxWorks FIOFLUSH discards the
+         * characters in tyLib.c instead of blocking the task until
+         * the characters are delivered to the link as I would
+         * expect
+         */
+         fflush (pDev->pWF);
+
+      }
+   }
 }
 
 /*
@@ -886,26 +911,26 @@ int drvSerialWrite (drvSerialParm * pDev)
  */
 int sendAllRequests (drvSerialParm *pDev)
 {
-	freeListItem *pReq;
-	int status;
+   freeListItem *pReq;
+   int status;
 
-	status = 0; 
-	while (TRUE) {
-		pReq = fetchHighestPriorityRequest(pDev);
-		if (!pReq) {
-			break;
-		}
+   status = 0; 
+   while (TRUE) {
+      pReq = fetchHighestPriorityRequest(pDev);
+      if (!pReq) {
+         break;
+      }
 
-		status = (*pReq->shr.req.pCB) (pDev->pWF, &pReq->shr.req);
+      status = (*pReq->shr.req.pCB) (pDev->pWF, &pReq->shr.req);
 
-		drvSerialDisposeFreeItem(pDev, pReq);
+      drvSerialDisposeFreeItem(pDev, pReq);
 
-		if (status < 0) {
-			break;
-		}
-	}
+      if (status < 0) {
+         break;
+      }
+   }
 
-	return status;
+   return status;
 }
 
 /*
@@ -916,28 +941,28 @@ int sendAllRequests (drvSerialParm *pDev)
  */
 freeListItem *fetchHighestPriorityRequest(drvSerialParm *pDev)
 {
-	freeListItem *pReq = NULL;
+   freeListItem *pReq = NULL;
 
 
-	epicsMutexMustLock( pDev->mutexSem );
+   epicsMutexMustLock( pDev->mutexSem );
 
-	while (pDev->pHighestPriReqQue>=pDev->requestQueues) {
-		pReq = (freeListItem *) ellGet(pDev->pHighestPriReqQue);
-		if (pReq) {
-			break;
-		}
-		pDev->pHighestPriReqQue--;
-	}
+   while (pDev->pHighestPriReqQue>=pDev->requestQueues) {
+      pReq = (freeListItem *) ellGet(pDev->pHighestPriReqQue);
+      if (pReq) {
+         break;
+      }
+      pDev->pHighestPriReqQue--;
+   }
 
-	if (pReq) {
-		assert (pReq->queue == dsReq);
-		pReq->queue = dsLimbo;
-		ellAdd(&pDev->limboQueue, &pReq->node);
-	}
+   if (pReq) {
+      assert (pReq->queue == dsReq);
+      pReq->queue = dsLimbo;
+      ellAdd(&pDev->limboQueue, &pReq->node);
+   }
 
-	epicsMutexUnlock(pDev->mutexSem);
+   epicsMutexUnlock(pDev->mutexSem);
 
-	return pReq;
+   return pReq;
 }
 
 /*
@@ -947,99 +972,99 @@ freeListItem *fetchHighestPriorityRequest(drvSerialParm *pDev)
 int
 drvSerialRead (drvSerialParm * pDev)
 {
-	long            status;
-	freeListItem 	*pResp;
-	freeListItem	resp;
-	int fd;
-	struct termios termios;
+   long            status;
+   freeListItem    *pResp;
+   freeListItem   resp;
+   int fd;
+   struct termios termios;
 
 
-	while (TRUE)
-	{
+   while (TRUE)
+   {
 
-		while (!pDev->pRF) {
-			pDev->pRF = fopen (pDev->pName, "r");
-			if (pDev->pRF) {
-				pDev->readCanceled = FALSE;
-				break;
-			}
-			fd = fileno(pDev->pRF);
-			printf (" drvSerialRead - setting termios for (%d) \n", fd);
-			tcgetattr (fd, &termios);
-			printf ("termios.c_iflag = [%o]\n", termios.c_iflag);
-			printf ("termios.c_oflag = [%o]\n", termios.c_oflag);
-			printf ("termios.c_cflag = [%o]\n", termios.c_cflag);
-			printf ("termios.c_lflag = [%o]\n", termios.c_lflag);
-			termios.c_lflag = 0;
-			termios.c_cc[VTIME] = 0;
-			termios.c_cc[VMIN] = 1;
-			termios.c_cc[VSTOP] = 0;
-			termios.c_cc[VSTART] = 0;
-			termios.c_cc[VREPRINT] = 0;
-			tcflush (fd, TCIFLUSH);
-			tcsetattr(fd, TCSANOW, &termios);
-			WAIT_N_SEC(10);
-		}
+      while (!pDev->pRF) {
+         pDev->pRF = fopen (pDev->pName, "r");
+         if (pDev->pRF) {
+            pDev->readCanceled = FALSE;
+            break;
+         }
+         fd = fileno(pDev->pRF);
+         printf (" drvSerialRead - setting termios for (%d) \n", fd);
+         tcgetattr (fd, &termios);
+         printf ("termios.c_iflag = [%o]\n", termios.c_iflag);
+         printf ("termios.c_oflag = [%o]\n", termios.c_oflag);
+         printf ("termios.c_cflag = [%o]\n", termios.c_cflag);
+         printf ("termios.c_lflag = [%o]\n", termios.c_lflag);
+         termios.c_lflag = 0;
+         termios.c_cc[VTIME] = 0;
+         termios.c_cc[VMIN] = 1;
+         termios.c_cc[VSTOP] = 0;
+         termios.c_cc[VSTART] = 0;
+         termios.c_cc[VREPRINT] = 0;
+         tcflush (fd, TCIFLUSH);
+         tcsetattr(fd, TCSANOW, &termios);
+         WAIT_N_SEC(10);
+      }
 
-		/*
-		 * call the applications parser to fill in the response
-		 */
-		resp.shr.res.bufCount = 0;
-		status = (*pDev->pInputParser)(pDev->pRF, &resp.shr.res, 
-					pDev->pAppPrivate);
-		if (status < 0) {
-			drvSerialLinkReset (pDev);
-			fclose (pDev->pRF);
-			pDev->pRF = NULL;
-			continue;
-		}
-		else if (resp.shr.res.bufCount==0) {
-			continue;
-		}
+      /*
+       * call the applications parser to fill in the response
+       */
+      resp.shr.res.bufCount = 0;
+      status = (*pDev->pInputParser)(pDev->pRF, &resp.shr.res, 
+               pDev->pAppPrivate);
+      if (status < 0) {
+         drvSerialLinkReset (pDev);
+         fclose (pDev->pRF);
+         pDev->pRF = NULL;
+         continue;
+      }
+      else if (resp.shr.res.bufCount==0) {
+         continue;
+      }
 
-		/*
-		 * Dont continue until this response queue is
-		 * below its maximum size
-		 *
-		 * (app notifies here if an entry is removed 
-		 * from the response queue).
-		 */
-		while (ellCount(&pDev->respQueue)>= responseQueueQuota) {
-			epicsEventWaitWithTimeout(pDev->readQueueSem, 
-						  (double) 4 );
-		}
+      /*
+       * Dont continue until this response queue is
+       * below its maximum size
+       *
+       * (app notifies here if an entry is removed 
+       * from the response queue).
+       */
+      while (ellCount(&pDev->respQueue)>= responseQueueQuota) {
+         epicsEventWaitWithTimeout(pDev->readQueueSem, 
+                    (double) 4 );
+      }
 
-		/*
-		 * obtain a free entry
-		 */
-		while ( !(pResp = drvSerialFetchFreeItem (pDev)) ) {
-			WAIT_N_SEC(1);
-		}
+      /*
+       * obtain a free entry
+       */
+      while ( !(pResp = drvSerialFetchFreeItem (pDev)) ) {
+         WAIT_N_SEC(1);
+      }
 
-		/*
-		 * copy the response
-		 */
-		
-		drvSerialCopyResponse (&pResp->shr.res, &resp.shr.res);
+      /*
+       * copy the response
+       */
+      
+      drvSerialCopyResponse (&pResp->shr.res, &resp.shr.res);
 
-		/*
-		 * MUTEX on
-		 */
-		epicsMutexMustLock( pDev->mutexSem );
+      /*
+       * MUTEX on
+       */
+      epicsMutexMustLock( pDev->mutexSem );
 
-		/*
-		 * add to the response queue
-		 */
-		assert (pResp->queue == dsLimbo);
-		ellDelete (&pDev->limboQueue, &pResp->node);
-		pResp->queue = dsRes;
-		ellAdd (&pDev->respQueue, &pResp->node);
+      /*
+       * add to the response queue
+       */
+      assert (pResp->queue == dsLimbo);
+      ellDelete (&pDev->limboQueue, &pResp->node);
+      pResp->queue = dsRes;
+      ellAdd (&pDev->respQueue, &pResp->node);
 
-		/*
-		 * MUTEX off
-		 */
-		epicsMutexUnlock(pDev->mutexSem);
-	}
+      /*
+       * MUTEX off
+       */
+      epicsMutexUnlock(pDev->mutexSem);
+   }
 }
 
 /*
@@ -1048,17 +1073,17 @@ drvSerialRead (drvSerialParm * pDev)
 int
 drvSerialInputQueueIsFull (drvSerialLinkId id)
 {
-	drvSerialParm *pDev = (drvSerialParm *) id;
+   drvSerialParm *pDev = (drvSerialParm *) id;
 
-	if (ellCount(&pDev->respQueue)>= responseQueueQuota) {
-		return TRUE;
-	}
-	/*
-	 * no need to check to see if there is sufficent
-	 * memory because I preallocate all of items in
-	 * the queue quota
-	 */
-	return FALSE;
+   if (ellCount(&pDev->respQueue)>= responseQueueQuota) {
+      return TRUE;
+   }
+   /*
+    * no need to check to see if there is sufficent
+    * memory because I preallocate all of items in
+    * the queue quota
+    */
+   return FALSE;
 }
 
 
@@ -1068,56 +1093,56 @@ drvSerialInputQueueIsFull (drvSerialLinkId id)
  */
 long
 drvSerialNextResponse(
-		      drvSerialLinkId id,
-		      drvSerialResponse * pResponse)
+            drvSerialLinkId id,
+            drvSerialResponse * pResponse)
 {
-	drvSerialParm *pDev = id;
-	freeListItem *pResp;
+   drvSerialParm *pDev = id;
+   freeListItem *pResp;
 
-	
+   
 
-	/*
-	 * MUTEX on
-	 */
-	epicsMutexMustLock( pDev->mutexSem );
+   /*
+    * MUTEX on
+    */
+   epicsMutexMustLock( pDev->mutexSem );
 
-	/*
-	 * inform the read task that something was removed 
-	 * from the response queue when it was full
-	 * (in case it needs to add another item)
-	 */
-	if (ellCount(&pDev->respQueue)>=responseQueueQuota) {
-		epicsEventSignal(pDev->readQueueSem);
-	}
+   /*
+    * inform the read task that something was removed 
+    * from the response queue when it was full
+    * (in case it needs to add another item)
+    */
+   if (ellCount(&pDev->respQueue)>=responseQueueQuota) {
+      epicsEventSignal(pDev->readQueueSem);
+   }
 
-	/*
-	 * obtain an event entry
-	 */
-	pResp = (freeListItem *) ellGet(&pDev->respQueue);
+   /*
+    * obtain an event entry
+    */
+   pResp = (freeListItem *) ellGet(&pDev->respQueue);
 
-	if (pResp) {
-		assert (pResp->queue == dsRes);
-		drvSerialCopyResponse(pResponse, &pResp->shr.res);
+   if (pResp) {
+      assert (pResp->queue == dsRes);
+      drvSerialCopyResponse(pResponse, &pResp->shr.res);
 
-		pResp->queue = dsLimbo;
-		ellAdd (&pDev->limboQueue, &pResp->node);;
-		drvSerialDisposeFreeItem (pDev, pResp);
-	}
+      pResp->queue = dsLimbo;
+      ellAdd (&pDev->limboQueue, &pResp->node);;
+      drvSerialDisposeFreeItem (pDev, pResp);
+   }
 
-	/*
-	 * MUTEX off
-	 */
-	epicsMutexUnlock(pDev->mutexSem);
+   /*
+    * MUTEX off
+    */
+   epicsMutexUnlock(pDev->mutexSem);
 
-	if (!pResp)
-	{
+   if (!pResp)
+   {
 
-	  
-		return S_drvSerial_noEntry;
-	}
+     
+      return S_drvSerial_noEntry;
+   }
 
 
-	return S_drvSerial_OK;
+   return S_drvSerial_OK;
 }
 
 
@@ -1129,27 +1154,27 @@ drvSerialNextResponse(
  */
 freeListItem * drvSerialFetchFreeItem (drvSerialParm *pDev)
 {
-	freeListItem *pItem;
+   freeListItem *pItem;
 
-	/*
-	 * MUTEX on
-	 * (task delete safe mutex prevents loss of limbo items)
-	 */
-	epicsMutexMustLock( pDev->mutexSem );
+   /*
+    * MUTEX on
+    * (task delete safe mutex prevents loss of limbo items)
+    */
+   epicsMutexMustLock( pDev->mutexSem );
 
-	pItem = (freeListItem *) freeListCalloc (pDev->pFreeListPVT);
+   pItem = (freeListItem *) freeListCalloc (pDev->pFreeListPVT);
 
-	/*
-	 * so we dont loose it if the task is deleted
-	 */
-	if (pItem) {
-		pItem->queue = dsLimbo;
-		ellAdd(&pDev->limboQueue, &pItem->node);
-	}
+   /*
+    * so we dont loose it if the task is deleted
+    */
+   if (pItem) {
+      pItem->queue = dsLimbo;
+      ellAdd(&pDev->limboQueue, &pItem->node);
+   }
 
-	epicsMutexUnlock(pDev->mutexSem);
+   epicsMutexUnlock(pDev->mutexSem);
 
-	return pItem;
+   return pItem;
 }
 
 /*
@@ -1163,18 +1188,18 @@ void
 drvSerialDisposeFreeItem (drvSerialParm *pDev, freeListItem * pItem)
 {
 
-	/*
-	 * MUTEX on
-	 * (task delete safe mutex prevents loss of limbo items)
-	 */
-	epicsMutexMustLock( pDev->mutexSem );
+   /*
+    * MUTEX on
+    * (task delete safe mutex prevents loss of limbo items)
+    */
+   epicsMutexMustLock( pDev->mutexSem );
 
-	assert (pItem->queue==dsLimbo);
-	ellDelete(&pDev->limboQueue, &pItem->node);
+   assert (pItem->queue==dsLimbo);
+   ellDelete(&pDev->limboQueue, &pItem->node);
 
-	freeListFree (pDev->pFreeListPVT, pItem);
+   freeListFree (pDev->pFreeListPVT, pItem);
 
-	epicsMutexUnlock(pDev->mutexSem);
+   epicsMutexUnlock(pDev->mutexSem);
 }
 
 /*
@@ -1182,83 +1207,82 @@ drvSerialDisposeFreeItem (drvSerialParm *pDev, freeListItem * pItem)
  */
 long
 drvSerialSendRequest(
-		     drvSerialLinkId id,
-		     drvSerialPriority pri,
-		     const drvSerialRequest * pReq)
+           drvSerialLinkId id,
+           drvSerialPriority pri,
+           const drvSerialRequest * pReq)
 {
-	drvSerialParm *pDev = (drvSerialParm *) id;
-	freeListItem *pItem;
-	ELLLIST *pReqList;
-	ELLLIST *pResList;
+   drvSerialParm *pDev = (drvSerialParm *) id;
+   freeListItem *pItem;
+   ELLLIST *pReqList;
+   ELLLIST *pResList;
+   /*
+    * check for application programmer error
+    */
 
-	/*
-	 * check for application programmer error
-	 */
+   if (pReq->bufCount >= sizeof(pReq->buf)) {
+      return S_drvSerial_invalidArg;
+   }
+   if (pri > dspHighest) {
+      return S_drvSerial_invalidArg;
+   }
+   if (pReq->pCB==NULL) {
+      return S_drvSerial_invalidArg;
+   }
 
-	if (pReq->bufCount >= sizeof(pReq->buf)) {
-		return S_drvSerial_invalidArg;
-	}
-	if (pri > dspHighest) {
-		return S_drvSerial_invalidArg;
-	}
-	if (pReq->pCB==NULL) {
-		return S_drvSerial_invalidArg;
-	}
+   /*
+    * add the request to the queue with MUTEX
+    */
+   epicsMutexMustLock( pDev->mutexSem );
 
-	/*
-	 * add the request to the queue with MUTEX
-	 */
-	epicsMutexMustLock( pDev->mutexSem );
+   /*
+    * if the request queue is full then return an error (instead of
+    * blocking so the record can enter alarm state)
+    */
+   pReqList = &pDev->requestQueues[pri];
+   pResList = &pDev->reserveQueues[pri];
+   if (ellCount(pReqList) + ellCount(pResList) >= requestQueueQuota)
+   {
+      epicsMutexUnlock(pDev->mutexSem);
+      return S_drvSerial_queueFull;
+   }
 
-	/*
-	 * if the request queue is full then return an error (instead of
-	 * blocking so the record can enter alarm state)
-	 */
-	pReqList = &pDev->requestQueues[pri];
-	pResList = &pDev->reserveQueues[pri];
-	if (ellCount(pReqList) + ellCount(pResList) >= requestQueueQuota)
-	{
-		epicsMutexUnlock(pDev->mutexSem);
-		return S_drvSerial_queueFull;
-	}
+   /*
+    * obtain an event entry
+    */
+   pItem = drvSerialFetchFreeItem(pDev);
+   if (!pItem)
+   {
+      epicsMutexUnlock(pDev->mutexSem);
+      return S_db_noMemory;
+   }
 
-	/*
-	 * obtain an event entry
-	 */
-	pItem = drvSerialFetchFreeItem(pDev);
-	if (!pItem)
-	{
-		epicsMutexUnlock(pDev->mutexSem);
-		return S_db_noMemory;
-	}
+   /*
+    * copy in their request
+    */
+   drvSerialCopyRequest(&pItem->shr.req, pReq);
 
-	/*
-	 * copy in their request
-	 */
-	drvSerialCopyRequest(&pItem->shr.req, pReq);
+   assert (pItem->queue==dsLimbo);
+   ellDelete (&pDev->limboQueue, &pItem->node);
 
-	assert (pItem->queue==dsLimbo);
-	ellDelete (&pDev->limboQueue, &pItem->node);
+   /*
+    * keep track of the highest priority
+    * and populated request queue 
+    */
+   if (pReqList>pDev->pHighestPriReqQue) {
+      pDev->pHighestPriReqQue = pReqList;
+   }
+   pItem->queue = dsReq;
+   pItem->pri = pri;
+   ellAdd(pReqList, &pItem->node);
 
-	/*
-	 * keep track of the highest priority
-	 * and populated request queue 
-	 */
-	if (pReqList>pDev->pHighestPriReqQue) {
-		pDev->pHighestPriReqQue = pReqList;
-	}
-	pItem->queue = dsReq;
-	pItem->pri = pri;
-	ellAdd(pReqList, &pItem->node);
+   epicsMutexUnlock(pDev->mutexSem);
 
-	epicsMutexUnlock(pDev->mutexSem);
+   /*
+    * inform write task that there is a new entry
+    */
+   epicsEventSignal(pDev->writeQueueSem);
 
-	/*
-	 * inform write task that there is a new entry
-	 */
-	epicsEventSignal(pDev->writeQueueSem);
-
-	return S_drvSerial_OK;
+   return S_drvSerial_OK;
 }
 
 /*
@@ -1266,55 +1290,55 @@ drvSerialSendRequest(
  */
 drvSerialRequest *
 drvSerialCreateReservedRequest(
-				drvSerialLinkId id,
-				drvSerialPriority pri)
+            drvSerialLinkId id,
+            drvSerialPriority pri)
 {
-	drvSerialParm *pDev = (drvSerialParm *) id;
-	freeListItem *pItem;
-	ELLLIST *pReqList;
-	ELLLIST *pResvList;
-	
-	if (pri > dspHighest) {
-		return NULL;
-	}
-	
-	/*
-	 * add the request to the queue with MUTEX
-	 */
-	epicsMutexMustLock( pDev->mutexSem );
+   drvSerialParm *pDev = (drvSerialParm *) id;
+   freeListItem *pItem;
+   ELLLIST *pReqList;
+   ELLLIST *pResvList;
+   
+   if (pri > dspHighest) {
+      return NULL;
+   }
+   
+   /*
+    * add the request to the queue with MUTEX
+    */
+   epicsMutexMustLock( pDev->mutexSem );
 
-	/*
-	 * if the request queue is full then return an error (instead of
-	 * blocking so the record can enter alarm state)
-	 */
-	pReqList = &pDev->requestQueues[pri];
-	pResvList = &pDev->reserveQueues[pri];
-	if (ellCount(pReqList) + ellCount(pResvList) >= requestQueueQuota)
-	{
-		epicsMutexUnlock(pDev->mutexSem);
-		return NULL;
-	}
+   /*
+    * if the request queue is full then return an error (instead of
+    * blocking so the record can enter alarm state)
+    */
+   pReqList = &pDev->requestQueues[pri];
+   pResvList = &pDev->reserveQueues[pri];
+   if (ellCount(pReqList) + ellCount(pResvList) >= requestQueueQuota)
+   {
+      epicsMutexUnlock(pDev->mutexSem);
+      return NULL;
+   }
 
-	/*
-	 * obtain an event entry
-	 */
-	pItem = drvSerialFetchFreeItem(pDev);
-	if (!pItem)
-	{
-		epicsMutexUnlock(pDev->mutexSem);
-		return NULL;
-	}
+   /*
+    * obtain an event entry
+    */
+   pItem = drvSerialFetchFreeItem(pDev);
+   if (!pItem)
+   {
+      epicsMutexUnlock(pDev->mutexSem);
+      return NULL;
+   }
 
-	assert (pItem->queue==dsLimbo);
-	ellDelete (&pDev->limboQueue, &pItem->node);
+   assert (pItem->queue==dsLimbo);
+   ellDelete (&pDev->limboQueue, &pItem->node);
 
-	pItem->queue = dsResv;
-	pItem->pri = pri;
-	ellAdd(pResvList, &pItem->node);
+   pItem->queue = dsResv;
+   pItem->pri = pri;
+   ellAdd(pResvList, &pItem->node);
 
-	epicsMutexUnlock(pDev->mutexSem);
+   epicsMutexUnlock(pDev->mutexSem);
 
-	return &pItem->shr.req;
+   return &pItem->shr.req;
 }
 
 /*
@@ -1322,52 +1346,52 @@ drvSerialCreateReservedRequest(
  */
 long
 drvSerialSendReservedRequest(
-				drvSerialLinkId id,
-				const drvSerialRequest * pRequest)
+            drvSerialLinkId id,
+            const drvSerialRequest * pRequest)
 {
-	drvSerialParm *pDev = (drvSerialParm *) id;
-	char *pChar = (char *) pRequest;
-	freeListItem *pItem = (freeListItem *) (pChar - offsetof(freeListItem,shr));
-	ELLLIST *pReqList;
-	ELLLIST *pResvList;
+   drvSerialParm *pDev = (drvSerialParm *) id;
+   char *pChar = (char *) pRequest;
+   freeListItem *pItem = (freeListItem *) (pChar - offsetof(freeListItem,shr));
+   ELLLIST *pReqList;
+   ELLLIST *pResvList;
 
-	/*
-	 * add the request to the queue with MUTEX
-	 */
-	epicsMutexMustLock( pDev->mutexSem );
+   /*
+    * add the request to the queue with MUTEX
+    */
+   epicsMutexMustLock( pDev->mutexSem );
 
-	/*
-	 * verify that this was created with
-	 * drvSerialCreateRequest()
-	 */
-	if (pItem->queue != dsResv || pItem->pri > dspHighest) {
-		epicsMutexUnlock(pDev->mutexSem);
-		return S_drvSerial_invalidArg;
-	}
+   /*
+    * verify that this was created with
+    * drvSerialCreateRequest()
+    */
+   if (pItem->queue != dsResv || pItem->pri > dspHighest) {
+      epicsMutexUnlock(pDev->mutexSem);
+      return S_drvSerial_invalidArg;
+   }
 
-	pReqList = &pDev->requestQueues[(unsigned) pItem->pri];
-	pResvList = &pDev->reserveQueues[(unsigned) pItem->pri];
+   pReqList = &pDev->requestQueues[(unsigned) pItem->pri];
+   pResvList = &pDev->reserveQueues[(unsigned) pItem->pri];
 
-	ellDelete (pResvList, &pItem->node);
+   ellDelete (pResvList, &pItem->node);
 
-	/*
-	 * keep track of the highest priority
-	 * and populated request queue 
-	 */
-	if (pReqList>pDev->pHighestPriReqQue) {
-		pDev->pHighestPriReqQue = pReqList;
-	}
-	pItem->queue = dsReq;
-	ellAdd(pReqList, &pItem->node);
+   /*
+    * keep track of the highest priority
+    * and populated request queue 
+    */
+   if (pReqList>pDev->pHighestPriReqQue) {
+      pDev->pHighestPriReqQue = pReqList;
+   }
+   pItem->queue = dsReq;
+   ellAdd(pReqList, &pItem->node);
 
-	epicsMutexUnlock(pDev->mutexSem);
+   epicsMutexUnlock(pDev->mutexSem);
 
-	/*
-	 * inform write task that there is a new entry
-	 */
-	epicsEventSignal(pDev->writeQueueSem);
+   /*
+    * inform write task that there is a new entry
+    */
+   epicsEventSignal(pDev->writeQueueSem);
 
-	return S_drvSerial_OK;
+   return S_drvSerial_OK;
 }
 
 /*
@@ -1383,94 +1407,105 @@ drvSerialLinkOpen (drvSerialParm *pDev)
 
     struct termios termios;
     
-	/*
-	 * we dont quit if we are unable to open the
-	 * file 
-	 *
-	 * instead we go ahead and spawn the tasks
-	 * and keep trying there in case the link comes
-	 * up later
-	 */
-	pDev->pWF = fopen (pDev->pName, "w");
-	if (!pDev->pWF) {
-		errMessage(S_drvSerial_linkDown, strerror(errno));
-	}
-			fd = fileno(pDev->pWF);
-			printf (" drvSerialLinkOpen - setting termios for %s (%d) \n", pDev->pName, fd);
-			tcgetattr (fd, &termios);
-			termios.c_iflag = 037757572010;
-			termios.c_lflag = 0;
-			termios.c_oflag = 0;
-			termios.c_cflag = 0;
-			printf ("termios.c_iflag = [%o]\n", termios.c_iflag);
-			printf ("termios.c_oflag = [%o]\n", termios.c_oflag);
-			printf ("termios.c_cflag = [%o]\n", termios.c_cflag);
-			printf ("termios.c_lflag = [%o]\n", termios.c_lflag);
-			termios.c_lflag = 0;
-			termios.c_cc[VTIME] = 0;
-			termios.c_cc[VMIN] = 1;
-			termios.c_cc[VSTOP] = 0;
-			termios.c_cc[VSTART] = 0;
-			termios.c_cc[VREPRINT] = 0;
-			tcflush (fd, TCIFLUSH);
-			tcsetattr(fd, TCSANOW, &termios);
+   /*
+    * we dont quit if we are unable to open the
+    * file 
+    *
+    * instead we go ahead and spawn the tasks
+    * and keep trying there in case the link comes
+    * up later
+    */
+   pDev->pWF = fopen (pDev->pName, "w");
+   if (!pDev->pWF) {
+      errMessage(S_drvSerial_linkDown, strerror(errno));
+   }
+         fd = fileno(pDev->pWF);
+         printf (" drvSerialLinkOpen - setting termios for %s (%d) \n", pDev->pName, fd);
+         tcgetattr (fd, &termios);
+         /* termios.c_iflag = 037757572010;*/ /* ?? OS dependant? */
+         //termios.c_iflag &= ~(IGNBRK | BRKINT | ICRNL | INLCR | PARMRK | INPCK | ISTRIP | IXON);
+         termios.c_iflag = 0;
+         //termios.c_lflag &= ~(ICANON | ECHO | ECHOE | ECHONL | IEXTEN | ISIG);
+         termios.c_lflag = 0;
+         //termios.c_oflag  &= ~(OPOST);;
+         termios.c_oflag  = 0;
+         termios.c_cflag &= ~(CSIZE | PARENB | CSTOPB | CRTSCTS); /* 8N1, no parity, no HW flow ctrl */
+         termios.c_cflag |= CS8;
+         cfsetispeed(&termios, B9600);
+         cfsetospeed(&termios, B9600);
+#if DEBUG
+         printf ("termios.c_iflag = [%o]\n", termios.c_iflag);
+         printf ("termios.c_oflag = [%o]\n", termios.c_oflag);
+         printf ("termios.c_cflag = [%o]\n", termios.c_cflag);
+         printf ("termios.c_lflag = [%o]\n", termios.c_lflag);
+#endif
+         termios.c_lflag = 0;
+         termios.c_cc[VTIME] = 0;
+         termios.c_cc[VMIN] = 1;
+         termios.c_cc[VSTOP] = 0;
+         termios.c_cc[VSTART] = 0;
+         termios.c_cc[VREPRINT] = 0;
+         tcflush (fd, TCIFLUSH);
+         tcsetattr(fd, TCSANOW, &termios);
 
-	pDev->pRF = fopen (pDev->pName, "r");
-	if (!pDev->pRF) {
-		errMessage (S_drvSerial_linkDown, strerror(errno));
-	}
-			fd = fileno(pDev->pRF);
-			printf (" drvSerialLinkOpen - NOT setting termios for %s (%d) \n", pDev->pName, fd);
-			
-			tcgetattr (fd, &termios);
-			printf ("termios.c_iflag = [%o]\n", termios.c_iflag);
-			printf ("termios.c_oflag = [%o]\n", termios.c_oflag);
-			printf ("termios.c_cflag = [%o]\n", termios.c_cflag);
-			printf ("termios.c_lflag = [%o]\n", termios.c_lflag);
-			termios.c_lflag = 0;
-			termios.c_cc[VTIME] = 0;
-			termios.c_cc[VMIN] = 1;
-			tcflush (fd, TCIFLUSH);
-			tcsetattr(fd, TCSANOW, &termios);
-		
+   pDev->pRF = fopen (pDev->pName, "r");
+   if (!pDev->pRF) {
+      errMessage (S_drvSerial_linkDown, strerror(errno));
+   }
+         fd = fileno(pDev->pRF);
+         printf (" drvSerialLinkOpen - NOT setting termios for %s (%d) \n", pDev->pName, fd);
+         
+         tcgetattr (fd, &termios);
+#if DEBUG
+         printf ("termios.c_iflag = [%o]\n", termios.c_iflag);
+         printf ("termios.c_oflag = [%o]\n", termios.c_oflag);
+         printf ("termios.c_cflag = [%o]\n", termios.c_cflag);
+         printf ("termios.c_lflag = [%o]\n", termios.c_lflag);
+#endif
+         termios.c_lflag = 0;
+         termios.c_cc[VTIME] = 0;
+         termios.c_cc[VMIN] = 1;
+         tcflush (fd, TCIFLUSH);
+         tcsetattr(fd, TCSANOW, &termios);
+      
 
-	pDev->readCanceled = 1;
+   pDev->readCanceled = 1;
 
-	pDev->wtTaskId = 
-	  epicsThreadCreate(
-			    "SerialWT",	/* task name */
-			    tp_drvSerialPriority,/* priority */
-			    tp_drvSerialStackSize,/* stack size */
-			    (EPICSTHREADFUNC) drvSerialWrite, /* task entry point */
-			    (void *) pDev );
-	if (!pDev->wtTaskId)
-	{
-		fclose (pDev->pRF);
-		pDev->pRF = NULL;
-		fclose (pDev->pWF);
-		pDev->pWF = NULL;
-		return S_db_noMemory;
-	}
+   pDev->wtTaskId = 
+     epicsThreadCreate(
+             "SerialWT",   /* task name */
+             tp_drvSerialPriority,/* priority */
+             tp_drvSerialStackSize,/* stack size */
+             (EPICSTHREADFUNC) drvSerialWrite, /* task entry point */
+             (void *) pDev );
+   if (!pDev->wtTaskId)
+   {
+      fclose (pDev->pRF);
+      pDev->pRF = NULL;
+      fclose (pDev->pWF);
+      pDev->pWF = NULL;
+      return S_db_noMemory;
+   }
 
-	pDev->rdTaskId = 
-	  epicsThreadCreate(
-			    "SerialRD",	/* task name */
-			    tp_drvSerialPriority,/* priority */
-			    tp_drvSerialStackSize,/* stack size */
-			    (EPICSTHREADFUNC) drvSerialRead, /* task entry point */
-			    (void *) pDev );
-	if (!pDev->rdTaskId)
-	{
-		fclose (pDev->pRF);
-		pDev->pRF = NULL;
-		fclose (pDev->pWF);
-		pDev->pWF = NULL;
-		return S_db_noMemory;
-	}
+   pDev->rdTaskId = 
+     epicsThreadCreate(
+             "SerialRD",   /* task name */
+             tp_drvSerialPriority,/* priority */
+             tp_drvSerialStackSize,/* stack size */
+             (EPICSTHREADFUNC) drvSerialRead, /* task entry point */
+             (void *) pDev );
+   if (!pDev->rdTaskId)
+   {
+      fclose (pDev->pRF);
+      pDev->pRF = NULL;
+      fclose (pDev->pWF);
+      pDev->pWF = NULL;
+      return S_db_noMemory;
+   }
 
-	pDev->readCanceled = 0;
+   pDev->readCanceled = 0;
 
-	return S_drvSerial_OK;
+   return S_drvSerial_OK;
 }
 
 /*
@@ -1480,73 +1515,76 @@ drvSerialLinkOpen (drvSerialParm *pDev)
  */
 void drvSerialLinkReset (drvSerialParm * pDev)
 {
-	freeListItem 		*pItem;
-	drvSerialPriority	pri;
+   freeListItem       *pItem;
+   drvSerialPriority   pri;
 
-	/*
-	 * MUTEX on
-	 */
-	epicsMutexMustLock( pDev->mutexSem );
+   /*
+    * MUTEX on
+    */
+   epicsMutexMustLock( pDev->mutexSem );
 
-	/*
-	 * this emptys any characters in the buffers
-	 * and cancels any outstanding IO operations
-	 *
-	 * testing the read/write canceled flags here
-	 * prevents feedback (race) situations
-	 */
-	if (!pDev->readCanceled && !pDev->writeCanceled) {
-		epicsPrintf ("%s.%d reseting link \"%s\"\n", 
-			__FILE__, __LINE__, pDev->pName);
-		if (pDev->pRF) {
+   /*
+    * this emptys any characters in the buffers
+    * and cancels any outstanding IO operations
+    *
+    * testing the read/write canceled flags here
+    * prevents feedback (race) situations
+    */
+   if (!pDev->readCanceled && !pDev->writeCanceled) {
+      epicsPrintf ("%s.%d resetting link \"%s\"\n", 
+         __FILE__, __LINE__, pDev->pName);
+      if (pDev->pRF) {
 
-		        /* ioctl (fileno(pDev->pRF), FIOFLUSH, 0); */   /* these only work under vxWorks */
-			/* ioctl (fileno(pDev->pRF), FIOCANCEL, 0); */  /* replace with fflush() 
-                                                                           and not worry about canceling pending transactions? */
-                       fflush(pDev->pRF);
-		pDev->readCanceled = TRUE;
-		}
-		if (pDev->pWF) {
-			/* ioctl (fileno(pDev->pWF), FIOFLUSH, 0); */   /* as above  */
-			/* ioctl (fileno(pDev->pWF), FIOCANCEL, 0); */
-                        fflush(pDev->pWF);
-			pDev->writeCanceled = TRUE;
-		}
-	}
+         /* ioctl (fileno(pDev->pRF), FIOFLUSH, 0); */   /* these only work under vxWorks */
+         /* ioctl (fileno(pDev->pRF), FIOCANCEL, 0); */  /* replace with fflush() & tcflush() */
+         fflush(pDev->pRF);
+         tcflush(fileno(pDev->pRF), TCIFLUSH);
+                   
+         pDev->readCanceled = TRUE;
+      }
+      if (pDev->pWF) {
+         /* ioctl (fileno(pDev->pWF), FIOFLUSH, 0); */   /* as above  */
+         /* ioctl (fileno(pDev->pWF), FIOCANCEL, 0); */
+         fflush(pDev->pWF);
+         tcflush(fileno(pDev->pWF), TCOFLUSH);
 
-	/*
-	 * drain outstanding requests
-	 */
-	for (pri=dspLowest; pri<=dspHighest; pri++) 
-	{
-		unsigned index;
+         pDev->writeCanceled = TRUE;
+      }
+   }
 
-		index = pri-dspLowest;
-		while ( (pItem = (freeListItem *) ellGet(&pDev->requestQueues[index])) ) {
-			pItem->queue = dsLimbo;
-			ellAdd (&pDev->limboQueue, &pItem->node);
-			drvSerialDisposeFreeItem (pDev, pItem);
-		}
-	}
+   /*
+    * drain outstanding requests
+    */
+   for (pri=dspLowest; pri<=dspHighest; pri++) 
+   {
+      unsigned index;
 
-	/*
-	 * drain outstanding responses
-	 */
-	while ( (pItem = (freeListItem *) ellGet(&pDev->respQueue)) ) {
-		pItem->queue = dsLimbo;
-		ellAdd (&pDev->limboQueue, &pItem->node);
-		drvSerialDisposeFreeItem (pDev, pItem);
-	}
+      index = pri-dspLowest;
+      while ( (pItem = (freeListItem *) ellGet(&pDev->requestQueues[index])) ) {
+         pItem->queue = dsLimbo;
+         ellAdd (&pDev->limboQueue, &pItem->node);
+         drvSerialDisposeFreeItem (pDev, pItem);
+      }
+   }
 
-	/*
-	 * MUTEX off
-	 */
-	epicsMutexUnlock(pDev->mutexSem);
+   /*
+    * drain outstanding responses
+    */
+   while ( (pItem = (freeListItem *) ellGet(&pDev->respQueue)) ) {
+      pItem->queue = dsLimbo;
+      ellAdd (&pDev->limboQueue, &pItem->node);
+      drvSerialDisposeFreeItem (pDev, pItem);
+   }
 
-	/*
-	 * dont race
-	 */
-	WAIT_N_SEC (1);
+   /*
+    * MUTEX off
+    */
+   epicsMutexUnlock(pDev->mutexSem);
+
+   /*
+    * dont race
+    */
+   WAIT_N_SEC (1);
 }
 
 
