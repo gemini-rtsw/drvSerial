@@ -44,9 +44,11 @@
 
 
 /*
- * conveinence routines which set/get the baud rate from the vxWorks shell
+ * convenience routines which set/get the baud rate from the vxWorks shell
  * (called before iocInit). pName specifies the device or file name.
  */
+#if  0
+/* These don't seem to be implemented */
 int drvSerialSetBaudRate (const char *pName, unsigned rate);
 int drvSerialGetBaudRate (const char *pName);
 #endif

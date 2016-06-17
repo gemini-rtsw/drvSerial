@@ -378,11 +378,10 @@ void drvSerialTestThread (const char *pName)
 
    memset(&req, '\0', sizeof(req));
    strcpy((char *)req.buf, "Test Test\r\n");
-   strcpy((char *)req.buf, "Test Test\r\n");
    req.bufCount = strlen((char *)req.buf);
    req.pCB = drvSerialTestXmit;
 
-   for(i=0; i<5; ++i) {
+   while(1) {
       status = drvSerialSendRequest (id, dspLow, &req);
       sprintf((char *)req.buf, "Test Test:%d\r\n", i);
       req.bufCount = strlen((char *)req.buf);
@@ -391,7 +390,7 @@ void drvSerialTestThread (const char *pName)
          status != S_drvSerial_linkDown) {
          errMessage(status, "");
       }
-      WAIT_N_SEC(10);
+      WAIT_N_SEC(20);
    }
 }
 
