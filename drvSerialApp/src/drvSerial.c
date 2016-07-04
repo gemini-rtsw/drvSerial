@@ -134,7 +134,7 @@
  * by dbAccess.h
  */
 
-#define TEST_DRV_SERIAL
+//#define TEST_DRV_SERIAL
 
 
 #if 0
@@ -197,8 +197,8 @@ typedef enum            /* SEM_B_STATE */
 
 /* timeout defines */
 
-#define NO_WAIT         0
-#define WAIT_FOREVER    (3600)
+#define NO_WAIT         0.0
+#define WAIT_FOREVER    (3600.0)  /* "forever" = 1 hour apparently */
 
 /* return status values */
 
@@ -243,7 +243,7 @@ typedef struct {
 
 /*
  * The limbo queue here is where items are stored prior to being
- * added to an operational queue so that we dont loose them if the
+ * added to an operational queue so that we dont lose them if the
  * task is deleted (I use task delete safe mutex lock).
  */
 typedef struct drvSerialParmTag
@@ -299,7 +299,6 @@ struct
    drvSerialReport,
    drvSerialInit
 };
-
 epicsExportAddress (drvet, drvSerial);
 
 freeListItem    *drvSerialFetchFreeItem (drvSerialParm *pDev);
@@ -367,7 +366,7 @@ void drvSerialTestThread (const char *pName)
    drvSerialLinkId id;
    drvSerialRequest req;
    int status;
-   int i;
+   int i = 0;
 
    status = drvSerialInit();
    assert (status==OK);
@@ -383,7 +382,7 @@ void drvSerialTestThread (const char *pName)
 
    while(1) {
       status = drvSerialSendRequest (id, dspLow, &req);
-      sprintf((char *)req.buf, "Test Test:%d\r\n", i);
+      sprintf((char *)req.buf, "Test Test:%d\r\n", i++);
       req.bufCount = strlen((char *)req.buf);
       if (   status != S_drvSerial_OK && 
          status != S_drvSerial_queueFull &&
@@ -433,7 +432,7 @@ void drvSerialTest(const char *portname) {
       dstThread = epicsThreadCreate("drvSerial Test",
                                      epicsThreadPriorityMedium,
                                      epicsThreadGetStackSize(epicsThreadStackMedium),
-                                     drvSerialTestThread,
+                                     (EPICSTHREADFUNC)drvSerialTestThread,
                                      (void *)portname);
    }
 }
@@ -453,7 +452,12 @@ const drvSerialRequest *pSrc)
    pDest->pCB = pSrc->pCB;
    pDest->pAppPrivate = pSrc->pAppPrivate;
    pDest->bufCount = pSrc->bufCount;
-   memcpy (pDest->buf, pSrc->buf, pSrc->bufCount);
+   if(pSrc->bufCount <= sizeof(pDest->buf))
+      memcpy (pDest->buf, pSrc->buf, pSrc->bufCount);
+   else
+      errlogPrintf("%s %d: drvSerialCopyRequest(): "
+                    "Destination buffer not large enough", 
+                   __FILE__, __LINE__);
 }
 
 /*
@@ -468,7 +472,12 @@ const drvSerialResponse *pSrc)
 {
    pDest->pAppPrivate = pSrc->pAppPrivate;
    pDest->bufCount = pSrc->bufCount;
-   memcpy (pDest->buf, pSrc->buf, pSrc->bufCount);
+   if(pSrc->bufCount <= sizeof(pDest->buf))
+      memcpy (pDest->buf, pSrc->buf, pSrc->bufCount);
+   else
+      errlogPrintf("%s %d: drvSerialCopyResponse(): "
+                    "Destination buffer not large enough", 
+                   __FILE__, __LINE__);
 }
 
 /*
@@ -713,8 +722,13 @@ drvSerialCreateLink(
    /*
     * Add entry for this file into the hash table
     */
-   assert (strlen(pName) < sizeof(pDev->pName) - 1);
-   strcpy(pDev->pName, pName);
+   if (strlen(pName) < sizeof(pDev->pName) - 1)
+      strcpy(pDev->pName, pName);
+   else {
+      errlogPrintf("%s %d: drvSerialCreateLink(): device name too long",
+         __FILE__, __LINE__);
+      strncpy(pDev->pName, pName, sizeof(pDev->pName)-1);
+   }
    status = bucketAddItemStringId(
                    devNameTbl.pBucket,
                    pDev->pName,
@@ -1015,10 +1029,10 @@ drvSerialRead (drvSerialParm * pDev)
          drvSerialLinkReset (pDev);
          fclose (pDev->pRF);
          pDev->pRF = NULL;
-         continue;
+         continue;  /* back to top of while(TRUE) loop */
       }
       else if (resp.shr.res.bufCount==0) {
-         continue;
+         continue;  /* back to top of while(TRUE) loop */
       }
 
       /*
@@ -1028,9 +1042,8 @@ drvSerialRead (drvSerialParm * pDev)
        * (app notifies here if an entry is removed 
        * from the response queue).
        */
-      while (ellCount(&pDev->respQueue)>= responseQueueQuota) {
-         epicsEventWaitWithTimeout(pDev->readQueueSem, 
-                    (double) 4 );
+      while (ellCount(&pDev->respQueue) >= responseQueueQuota) {
+         epicsEventWaitWithTimeout(pDev->readQueueSem, 4.0 );
       }
 
       /*
@@ -1054,10 +1067,15 @@ drvSerialRead (drvSerialParm * pDev)
       /*
        * add to the response queue
        */
-      assert (pResp->queue == dsLimbo);
-      ellDelete (&pDev->limboQueue, &pResp->node);
-      pResp->queue = dsRes;
-      ellAdd (&pDev->respQueue, &pResp->node);
+      /* assert (pResp->queue == dsLimbo); */
+      if (pResp->queue == dsLimbo) {
+         ellDelete (&pDev->limboQueue, &pResp->node);
+         pResp->queue = dsRes;
+         ellAdd (&pDev->respQueue, &pResp->node);
+      }
+      else { errlogPrintf("%s %d: drvSerialRead(): pResp has wrong queue",
+              __FILE__, __LINE__);
+      }
 
       /*
        * MUTEX off
