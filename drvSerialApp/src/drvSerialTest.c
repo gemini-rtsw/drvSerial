@@ -141,15 +141,17 @@ int drvSerialTestCreateLink (char *port)
 	struct privStruct	priv, *ppriv = &priv;
 
 	status = drvSerialCreateLink (port, drvSerialTestParser, ppriv, &ppriv->id);
-	linkId = ppriv->id;
+        linkId = ppriv->id;
 
 	if (drvSerialTestDebugLevel > 0)
 	    epicsPrintf("linkId=%p\n", linkId);
+	if (drvSerialTestDebugLevel > 1)
+	    epicsPrintf("status=%d\n", status);
 
 	return status;
 }
 
-/* drvSerialTestAttachLink -- Routine to test drvSerialAttachLink. It will return an
+/* drvSerialTestAttachLink -- Routine to test dr/AvSerialAttachLink. It will return an
  * error if called before serialTestCreateLink().
  */
 int drvSerialTestAttachLink (char *port)
@@ -234,10 +236,11 @@ int drvSerialTestAll(char *port)
 
 	drvSerialTestInitialize();
 
-	if (drvSerialTestCreateLink (port) != TEST_OK) {
-	    epicsPrintf ("Failed to open port\n");
-	    return TEST_ERROR;
-	}
+        if(drvSerialTestAttachLink(port) == S_drvSerial_noneAttached)
+           if (drvSerialTestCreateLink (port) != TEST_OK) {
+              epicsPrintf ("Failed to open port\n");
+              return TEST_ERROR;
+           }
 
 	for (n = 0; n < MAX_ITERATIONS; n++) {
 	    epicsPrintf ("-- %d ------------------\n", n);
@@ -265,6 +268,23 @@ static void drvSerialTestDebugCallFunc (const iocshArgBuf *args)
   epicsPrintf ("drvSerialTestDebug: Setting debug level %d\n", drvSerialTestDebugLevel);
 }
 
+static const iocshArg drvSerialTestCreateArg0 = {"portname", iocshArgString};
+static const iocshArg * const drvSerialTestCreateArgs[] = {&drvSerialTestCreateArg0};
+static const iocshFuncDef drvSerialTestCreateFuncDef = {"drvSerialTestCreateLink",  1,  drvSerialTestCreateArgs};
+static void drvSerialTestCreateCallFunc(const iocshArgBuf *args )
+{
+   drvSerialTestCreateLink(args[0].sval);
+}
+
+
+static const iocshArg drvSerialTestAttachArg0 = {"portname", iocshArgString};
+static const iocshArg * const drvSerialTestAttachArgs[] = {&drvSerialTestAttachArg0};
+static const iocshFuncDef drvSerialTestAttachFuncDef = {"drvSerialTestAttachLink",  1,  drvSerialTestAttachArgs};
+static void drvSerialTestAttachCallFunc(const iocshArgBuf *args )
+{
+   drvSerialTestAttachLink(args[0].sval);
+}
+
 
 static const iocshArg drvSerialTestArg0 = {"portname", iocshArgString};
 static const iocshArg * const drvSerialTestArgs[] = {&drvSerialTestArg0};
@@ -274,12 +294,32 @@ static void drvSerialTestCallFunc(const iocshArgBuf *args )
    drvSerialTestAll(args[0].sval);
 }
 
+
+
+static const iocshFuncDef drvSerialTestSendFuncDef = {"drvSerialTestSend",  0,  NULL};
+static void drvSerialTestSendCallFunc(const iocshArgBuf *args )
+{
+   drvSerialTestSend();
+}
+
+
+static const iocshFuncDef drvSerialTestReceiveFuncDef = {"drvSerialTestReceive",  0,  NULL};
+static void drvSerialTestReceiveCallFunc(const iocshArgBuf *args )
+{
+   drvSerialTestReceive();
+}
+
+
 static void drvSerialTestRegisterCommands(void)
 {
    static int firstTime = 1;
    if (firstTime) {
       iocshRegister (&drvSerialTestDebugFuncDef, drvSerialTestDebugCallFunc);
       iocshRegister(&drvSerialTestFuncDef, drvSerialTestCallFunc);
+      iocshRegister(&drvSerialTestCreateFuncDef, drvSerialTestCreateCallFunc);
+      iocshRegister(&drvSerialTestAttachFuncDef, drvSerialTestAttachCallFunc);
+      iocshRegister(&drvSerialTestSendFuncDef, drvSerialTestSendCallFunc);
+      iocshRegister(&drvSerialTestReceiveFuncDef, drvSerialTestReceiveCallFunc);
       firstTime = 0;
    }
 }
