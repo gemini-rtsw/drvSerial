@@ -134,63 +134,6 @@
  * by dbAccess.h
  */
 
-//#define TEST_DRV_SERIAL
-
-
-#if 0
-/*
- * extracted from: /home/vw/m5.3.1.ppc/target/h/semLib.h
- */
-/* binary semaphore initial state */
-typedef enum            /* SEM_B_STATE */
-    {
-    SEM_EMPTY,                  /* 0: semaphore not available */
-    SEM_FULL                    /* 1: semaphore available */
-    } SEM_B_STATE;
-
-/*
- * extracted from: /home/vw/m5.3.1.ppc/target/h/ioLib.h
- */
-/* ioctl function codes */
-
-#define FIONREAD        1               /* get num chars available to read */
-#define FIOFLUSH        2               /* flush any chars in buffers */
-#define FIOOPTIONS      3               /* set options (FIOSETOPTIONS) */
-#define FIOBAUDRATE     4               /* set serial baud rate */
-#define FIODISKFORMAT   5               /* format disk */
-#define FIODISKINIT     6               /* initialize disk directory */
-#define FIOSEEK         7               /* set current file char position */
-#define FIOWHERE        8               /* get current file char position */
-#define FIODIRENTRY     9               /* return a directory entry (obsolete)*/
-#define FIORENAME       10              /* rename a directory entry */
-#define FIOREADYCHANGE  11              /* return TRUE if there has been a
-                                           media change on the device */
-#define FIONWRITE       12              /* get num chars still to be written */
-#define FIODISKCHANGE   13              /* set a media change on the device */
-#define FIOCANCEL       14              /* cancel read or write on the device */
-#define FIOSQUEEZE      15              /* squeeze out empty holes in rt-11
-                                         * file system */
-/*
- * extracted from: /home/vw/m5.3.1.ppc/target/h/ioLib.h
- */
-
-#if     !defined(NULL)
-#define NULL            0
-#endif
-
-#if     !defined(EOF) || (EOF!=(-1))
-#define EOF             (-1)
-#endif
-
-#if     !defined(FALSE) || (FALSE!=0)
-#define FALSE           0
-#endif
-
-#if     !defined(TRUE) || (TRUE!=1)
-#define TRUE            1
-#endif
-
-#endif    // #if 0
 
 #define NONE            (-1)    /* for times when NULL won't do */
 #define EOS             '\0'    /* C string terminator */
@@ -201,7 +144,6 @@ typedef enum            /* SEM_B_STATE */
 #define WAIT_FOREVER    (3600.0)  /* "forever" = 1 hour apparently */
 
 /* return status values */
-
 #define OK              0
 #define ERROR           (-1)
 
@@ -210,14 +152,6 @@ typedef enum            /* SEM_B_STATE */
 #include "drvSerial.h"
 
 #define WAIT_N_SEC(N) {epicsThreadSleep(N);}
-
-/*
- * task creation options
- */
-#if 0
-#define tp_drvSerialPriority 55    
-#define tp_drvSerialStackSize 0x1000   /* 4096 */
-#endif 
 
 #define tp_drvSerialPriority  epicsThreadPriorityMedium   
 #define tp_drvSerialStackSize epicsThreadGetStackSize(epicsThreadStackMedium)
@@ -302,8 +236,7 @@ struct
 epicsExportAddress (drvet, drvSerial);
 
 freeListItem    *drvSerialFetchFreeItem (drvSerialParm *pDev);
-void drvSerialDisposeFreeItem (drvSerialParm *pDev, 
-            freeListItem * pItem);
+void drvSerialDisposeFreeItem (drvSerialParm *pDev, freeListItem * pItem);
 void drvSerialLinkReset (drvSerialParm * pDev);
 int sendAllRequests (drvSerialParm *pDev);
 drvSerialParm *drvSerialTestExist (const char *pName);
@@ -312,132 +245,8 @@ int drvSerialWrite (drvSerialParm * pDev);
 int drvSerialRead (drvSerialParm * pDev);
 freeListItem *fetchHighestPriorityRequest (drvSerialParm *pDev);
 
-void drvSerialCopyResponse(
-   drvSerialResponse *pDest, 
-   const drvSerialResponse *pSrc);
-void drvSerialCopyRequest(
-   drvSerialRequest *pDest, 
-   const drvSerialRequest *pSrc);
-
-#ifdef TEST_DRV_SERIAL
-void drvSerialTest(const char *pName);
-int drvSerialTestParser (FILE *pf, drvSerialResponse *pResp, 
-            void *pAppPrivate);
-int drvSerialTestXmit (FILE *pf, drvSerialRequest *pReq);
-static void drvSerialSetDebug (const iocshArgBuf *);
-static int drvSerialDebug = 0;
-
-static const iocshArg intArg0 = {"blockSize", iocshArgInt};
-static const iocshArg * const intArg[1] = {&intArg0};
-static const iocshFuncDef drvSerialDebugDef = {"drvSerialSetDebug",  1,  intArg};
-static void drvSerialSetDebug (const iocshArgBuf *args)
-{
-  drvSerialDebug = args[0].ival;
-  printf ("drvSerialSetDebug: Setting debug level %d\n", drvSerialDebug);
-}
-
-
-static const iocshArg drvSerialTestArg0 = {"portname", iocshArgString};
-static const iocshArg * const drvSerialTestArgs[] = {&drvSerialTestArg0};
-static const iocshFuncDef drvSerialTestFuncDef = {"drvSerialTest",  1,  drvSerialTestArgs};
-static void drvSerialTestCallFunc(const iocshArgBuf *args )
-{
-   drvSerialTest(args[0].sval);
-}
-
-static void drvSerialTestRegisterCommands(void)
-{
-   static int firstTime = 1;
-   if (firstTime) {
-      iocshRegister (&drvSerialDebugDef, drvSerialSetDebug);
-      iocshRegister(&drvSerialTestFuncDef, drvSerialTestCallFunc);
-      firstTime = 0;
-   }
-}
-epicsExportRegistrar(drvSerialTestRegisterCommands);
-
-
-
-/*
- * drvSerialTest ()
- */
-void drvSerialTestThread (const char *pName)
-{
-   drvSerialLinkId id;
-   drvSerialRequest req;
-   int status;
-   int i = 0;
-
-   status = drvSerialInit();
-   assert (status==OK);
-
-   status = drvSerialCreateLink(pName,    
-         drvSerialTestParser,NULL,&id);
-   assert (status==OK);
-
-   memset(&req, '\0', sizeof(req));
-   strcpy((char *)req.buf, "Test Test\r\n");
-   req.bufCount = strlen((char *)req.buf);
-   req.pCB = drvSerialTestXmit;
-
-   while(1) {
-      status = drvSerialSendRequest (id, dspLow, &req);
-      sprintf((char *)req.buf, "Test Test:%d\r\n", i++);
-      req.bufCount = strlen((char *)req.buf);
-      if (   status != S_drvSerial_OK && 
-         status != S_drvSerial_queueFull &&
-         status != S_drvSerial_linkDown) {
-         errMessage(status, "");
-      }
-      WAIT_N_SEC(20);
-   }
-}
-
-int drvSerialTestXmit (FILE *pf, drvSerialRequest *pReq)
-{
-   char *pBuf;
-   int s=0;
-
-   for (pBuf=pReq->buf; pBuf<&pReq->buf[pReq->bufCount]; pBuf++) {
-      s = putc(*pBuf, pf);
-      if (s == EOF) {
-         break;
-      }
-   }
-   return s;
-}
-
-int drvSerialTestParser (FILE *pf, drvSerialResponse *pResp, 
-            void *pAppPrivate)
-{
-   char  *pBuf = pResp->buf; 
-   char c;
-
-    pResp->bufCount = 0; 
-
-    while ((c = getc (pf)) != '\n') { 
-        *(pBuf++) = c; 
-        pResp->bufCount++; 
-    } 
-printf("%s", pBuf);
-
-    return (pResp->bufCount); 
-}
-
-
-
-epicsThreadId dstThread;
-void drvSerialTest(const char *portname) {
-   if(!dstThread) {
-      dstThread = epicsThreadCreate("drvSerial Test",
-                                     epicsThreadPriorityMedium,
-                                     epicsThreadGetStackSize(epicsThreadStackMedium),
-                                     (EPICSTHREADFUNC)drvSerialTestThread,
-                                     (void *)portname);
-   }
-}
-
-#endif    // TEST_DRV_SERIAL
+void drvSerialCopyResponse( drvSerialResponse *pDest, const drvSerialResponse *pSrc);
+void drvSerialCopyRequest( drvSerialRequest *pDest, const drvSerialRequest *pSrc);
 
 /*
  * drvSerialCopyRequest()
@@ -445,9 +254,7 @@ void drvSerialTest(const char *portname) {
  * Copy a source request into a destination request
  * (dont copy unused bytes)
  */
-void drvSerialCopyRequest(
-drvSerialRequest *pDest, 
-const drvSerialRequest *pSrc)
+void drvSerialCopyRequest(drvSerialRequest *pDest, const drvSerialRequest *pSrc)
 {
    pDest->pCB = pSrc->pCB;
    pDest->pAppPrivate = pSrc->pAppPrivate;
@@ -466,9 +273,7 @@ const drvSerialRequest *pSrc)
  * Copy a source response into a destination response 
  * (dont copy unused bytes)
  */
-void drvSerialCopyResponse(
-drvSerialResponse *pDest, 
-const drvSerialResponse *pSrc)
+void drvSerialCopyResponse(drvSerialResponse *pDest, const drvSerialResponse *pSrc)
 {
    pDest->pAppPrivate = pSrc->pAppPrivate;
    pDest->bufCount = pSrc->bufCount;
@@ -527,8 +332,7 @@ long drvSerialInit (void)
 /*
  * drvSerialReport()
  */
-long
-drvSerialReport(int level)
+long drvSerialReport(int level)
 {
   drvSerialParm        *pDev;
   drvSerialPriority   pri;
@@ -580,8 +384,7 @@ drvSerialReport(int level)
 /*
  * drvSerialAttachLink()
  */
-long
-drvSerialAttachLink(
+long drvSerialAttachLink(
           const char *pName,
           drvSerialParseInput *pParser,
           void **ppAppPrivate
@@ -658,8 +461,7 @@ drvSerialParm *drvSerialTestExist(const char *pName)
 /*
  * drvSerialCreateLink()
  */
-long
-drvSerialCreateLink(
+long drvSerialCreateLink(
           const char *pName,
           drvSerialParseInput *pParser,
           void *pAppPrivate,

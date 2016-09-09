@@ -24,10 +24,9 @@ drvSerial_SRCS += drvSerial.c
 drvSerial_SRCS += drvSerialRegister.cpp
 
 # A test facility to optionally add to an IOC
-#DBD += sioTest.dbd
 DBD += drvSerialTest.dbd
-#LIBRARY_IOC_RTEMS += sioTest
-#sioTest_SRCS += sioTest.c
+LIBRARY_IOC += drvSerialTest 
+drvSerialTest_SRCS += drvSerialTest.c
 #===========================
 
 include $(TOP)/configure/RULES
