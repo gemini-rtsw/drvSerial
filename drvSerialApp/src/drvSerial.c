@@ -138,10 +138,13 @@
 #define NONE            (-1)    /* for times when NULL won't do */
 #define EOS             '\0'    /* C string terminator */
 
-/* timeout defines */
-
+/* spurious timeout defines */
+#if 0
 #define NO_WAIT         0.0
 #define WAIT_FOREVER    (3600.0)  /* "forever" = 1 hour apparently */
+#endif
+
+
 
 /* return status values */
 #define OK              0
@@ -660,9 +663,13 @@ int drvSerialWrite (drvSerialParm * pDev)
 
    while (TRUE)
    {
+#if 0
       status = epicsEventWaitWithTimeout(pDev->writeQueueSem, 
                      (double) WAIT_FOREVER);
                 /* epicsPrintf( "drvSerialWrite - epicsEventWaitWithTimeout return = %d\n", status ); */
+#endif
+
+      status = epicsEventWait(pDev->writeQueueSem);
       assert (status == epicsEventWaitOK);
 
       while (!pDev->pWF) {
@@ -1221,7 +1228,6 @@ drvSerialSendReservedRequest(
 int 
 drvSerialLinkOpen (drvSerialParm *pDev)
 {
-    /* int errno=0;    */
     int fd;
 
     struct termios termios;
@@ -1235,6 +1241,14 @@ drvSerialLinkOpen (drvSerialParm *pDev)
     * up later
     */
    pDev->pWF = fopen (pDev->pName, "w");
+
+   /* but don't keep trying if the serial port doesn't even exist! */
+   if((errno == ENOENT) || (errno == EISDIR)) {  /* EISDIR is error if no portname supplied */
+     epicsPrintf("drvSerialLinkOpen: No such device \"%s\"\n", pDev->pName);
+     epicsPrintf("drvSerialLinkOpen: (errno =  %d)\n", errno);
+     return S_drvSerial_invalidArg;
+   }
+
    if (!pDev->pWF) {
       errMessage(S_drvSerial_linkDown, strerror(errno));
    }
