@@ -21,9 +21,8 @@
 #define TEST_OK      0
 #define TEST_ERROR   (-1)
 #define   MAX_BUFFER   255    /* can be up to 255 bytes */
-#define   MAX_ITERATIONS   1000
+#define   MAX_ITERATIONS   10
 
-static int drvSerialTestDebugLevel   = 1;
 
 /* flag to indicate whether to print out test buffer */
 static int printbuf = 1;
@@ -83,8 +82,7 @@ static int drvSerialTestSendRequest (FILE *pFile, drvSerialRequest *pReq)
 
    nwritten = fwrite (pReq->buf, sizeof (epicsUInt8), pReq->bufCount, pFile);
 
-   if (drvSerialTestDebugLevel > 0)
-       epicsPrintf ("sendRequest: nwritten=%d\n", nwritten);
+   epicsPrintf ("sendRequest: nwritten=%d\n", nwritten);
 
    if (nwritten == pReq->bufCount)
        status = TEST_OK;
@@ -113,32 +111,26 @@ static int drvSerialTestParser (FILE *fp, drvSerialResponse *pResp, void *pPriv)
       break;
    }
 
-   if (pResp->bufCount > 0 && drvSerialTestDebugLevel > 1)
-       drvSerialTestPrintBuffer("drvSerialTestParser", pResp->buf);
+   epicsPrintf("drvSerialTestParser() called, bufCount = %d \n", pResp->bufCount);
 
    return pResp->bufCount;
 }
 
 /* --- end of local routines --*/
 
-/* drvSerialTestInitialize -- Routine used to do all necesary initialization.
- * At this point it only takes care of initializing the test data.
+/* drvSerialTestDataInitialize --.
+ * Initializing the test data buffer with random data.
  */
-int drvSerialTestInitialize ()
+int drvSerialTestDataInitialize ()
 {
    int   n;
 
    memset (testDataBuffer, 0, MAX_BUFFER);
    for (n = 0; n < MAX_BUFFER; n++)
-       *(testDataBuffer + n) = n;
+       *(testDataBuffer + n) = rand()%255;
    return TEST_OK;
 }
 
-int drvSerialTestDebug (int level)
-{
-   drvSerialTestDebugLevel = level;
-   return TEST_OK;
-}
 
 /* drvSerialTestCreateLink -- Routine to test drvSerialCreateLink(). The link id
  * is stored in the global variable linkId for later use.
@@ -148,25 +140,23 @@ int drvSerialTestCreateLink (char *port)
    int         status;
    struct privStruct   priv, *ppriv = &priv;
 
-        if(drvSerialTestDebugLevel > 0)
-           epicsPrintf("drvSerialCreateLink()\n");
+   epicsPrintf("drvSerialCreateLink(): ");
 
    status = drvSerialCreateLink (port, drvSerialTestParser, ppriv, &ppriv->id);
         
-        if(status != S_drvSerial_OK) 
-           epicsPrintf("drvSerialTestCreateLink: failed.\n");
-        else {
-           linkId = ppriv->id;
-      if (drvSerialTestDebugLevel > 0)
-          epicsPrintf("linkId=%p\n", linkId);
-      if (drvSerialTestDebugLevel > 1)
-          epicsPrintf("status=%d\n", status);
-        }
+   if(status != S_drvSerial_OK) 
+      epicsPrintf("failed.\n");
+   else {
+      linkId = ppriv->id;
+      epicsPrintf("link created on port %s: ", port);
+      epicsPrintf("linkId=%p: ", linkId);
+      epicsPrintf("status=%d\n", status);
+   }
 
    return status;
 }
 
-/* drvSerialTestAttachLink -- Routine to test dr/AvSerialAttachLink. It will return an
+/* drvSerialTestAttachLink -- Routine to test drvSerialAttachLink. It will return an
  * error if called before serialTestCreateLink().
  */
 int drvSerialTestAttachLink (char *port)
@@ -174,15 +164,20 @@ int drvSerialTestAttachLink (char *port)
    int         status;
    struct privStruct   priv, *ppriv = &priv;
 
-        if(drvSerialTestDebugLevel > 0)
-           epicsPrintf("drvSerialAttachLink()\n");
+   epicsPrintf("drvSerialAttachLink(): ");
 
-        status = drvSerialAttachLink (port, drvSerialTestParser, (void **) &ppriv);
+   status = drvSerialAttachLink (port, drvSerialTestParser, (void **) &ppriv);
         
-        if((status != S_drvSerial_OK) && (status != S_drvSerial_noneAttached))
-           epicsPrintf("drvSerialTestAttachLink: failed.\n");
+   if(status == S_drvSerial_noneAttached) {
+      epicsPrintf("No link exists to which to attach\n");
+   }
+      
+   else if(status != S_drvSerial_OK)
+       epicsPrintf("unknown failure.\n");
 
-        return status;
+   else epicsPrintf("attached to link on port %s\n", port);
+
+   return status;
 }
 
 /* drvSerialTestSend -- Routine to test drvSerialSendRequest(). It should be called
@@ -192,24 +187,23 @@ int drvSerialTestSend ()
 {
    drvSerialRequest   req; 
 
-   if (drvSerialTestDebugLevel > 1)
-       epicsPrintf("sizeof(req)=%lu, sizeof(req.buf)=%lu\n", (long)sizeof(req), (long)sizeof(req.buf));
+   epicsPrintf("drvSerialTestSend(): sizeof(req)=%lu, sizeof(req.buf)=%lu\n", (long)sizeof(req), (long)sizeof(req.buf));
 
    if (MAX_BUFFER > sizeof(req.buf) ) {
        epicsPrintf ("Test buffer too big!\n");
        return TEST_ERROR;
    }
 
+   drvSerialTestDataInitialize();
    memcpy((char *) req.buf, testDataBuffer, MAX_BUFFER);
-   if (drvSerialTestDebugLevel > 1)
-       drvSerialTestPrintBuffer("serialTestSend", req.buf);
-        req.bufCount    = MAX_BUFFER;
-        req.pCB         = drvSerialTestSendRequest; 
-        req.pAppPrivate = NULL; 
+   drvSerialTestPrintBuffer("serialTestSend", req.buf);
+   req.bufCount    = MAX_BUFFER;
+   req.pCB         = drvSerialTestSendRequest; 
+   req.pAppPrivate = NULL; 
 
-        drvSerialSendRequest (linkId, dspLow, &req);
+   drvSerialSendRequest (linkId, dspLow, &req);
 
-        epicsPrintf("\n");
+   epicsPrintf("\n");
 
    return 0;
 }
@@ -226,31 +220,27 @@ int drvSerialTestReceive()
    status = drvSerialNextResponse (linkId, &resp); 
 
    if (status == S_drvSerial_noEntry) {
-       if (drvSerialTestDebugLevel > 0)
-      epicsPrintf ("No data\n");
+      epicsPrintf ("drvSerialTestReceive(): No data\n");
        return TEST_ERROR;
    } else if (status != S_drvSerial_OK) {
        return TEST_ERROR;
    }
 
-   if (drvSerialTestDebugLevel > 1) {
-       drvSerialTestPrintBuffer("serialTestReceive", resp.buf);
-       epicsPrintf ("bufCount=%d\n", resp.bufCount);
-   }
+   drvSerialTestPrintBuffer("serialTestReceive", resp.buf);
+   epicsPrintf ("bufCount=%d\n", resp.bufCount);
 
    if (memcmp(resp.buf, testDataBuffer, MAX_BUFFER) != 0) {
        epicsPrintf ("Buffers don't agree\n");
        return TEST_ERROR;
    } else {
-       if (drvSerialTestDebugLevel > 0)
       epicsPrintf ("Buffers agree\n");
-       return TEST_OK;
+      return TEST_OK;
    }
 
    return TEST_OK;
 }
 
-/* drvSserialTestAll -- End to end test. It creates a link, and send and recives
+/* drvSerialTestAll -- End to end test. It creates a link, and send and recives
  * date multiple times to check for transmission errors.
  */
 int drvSerialTestAll(char *port)
@@ -258,17 +248,22 @@ int drvSerialTestAll(char *port)
    int          n;
    int     status;
 
-   drvSerialTestInitialize();
 
    status = drvSerialTestAttachLink(port);
 
-   if(status == S_drvSerial_noneAttached)
-      status =  drvSerialTestCreateLink(port);
+   if(status == S_drvSerial_noneAttached) {
+      epicsPrintf("drvSerialTest: No pre-existing link, will try creating one.\n");
+      if((status =  drvSerialTestCreateLink(port)) == S_drvSerial_OK)
+         epicsPrintf("drvSerialTest: Created link to port %s\n", port);
+   }
       
    if(status != S_drvSerial_OK) {
       epicsPrintf ("Failed to open port\n");
       return TEST_ERROR;
    }
+   else 
+      epicsPrintf("Attached to link on port %s\n", port);
+
    printbuf = 0;
 
    for (n = 0; n < MAX_ITERATIONS; n++) {
@@ -285,17 +280,6 @@ int drvSerialTestAll(char *port)
 }
 
 
-
-
-
-static const iocshArg drvSerialTestDebugArg0 = {"test debug level", iocshArgInt};
-static const iocshArg * const drvSerialTestDebugArgs[] = {&drvSerialTestDebugArg0};
-static const iocshFuncDef drvSerialTestDebugFuncDef = {"drvSerialTestDebug",  1,  drvSerialTestDebugArgs};
-static void drvSerialTestDebugCallFunc (const iocshArgBuf *args)
-{
-  drvSerialTestDebug(args[0].ival);
-  epicsPrintf ("drvSerialTestDebug: Setting debug level %d\n", drvSerialTestDebugLevel);
-}
 
 static const iocshArg drvSerialTestCreateArg0 = {"portname", iocshArgString};
 static const iocshArg * const drvSerialTestCreateArgs[] = {&drvSerialTestCreateArg0};
@@ -343,7 +327,6 @@ static void drvSerialTestRegisterCommands(void)
 {
    static int firstTime = 1;
    if (firstTime) {
-      iocshRegister (&drvSerialTestDebugFuncDef, drvSerialTestDebugCallFunc);
       iocshRegister(&drvSerialTestFuncDef, drvSerialTestCallFunc);
       iocshRegister(&drvSerialTestCreateFuncDef, drvSerialTestCreateCallFunc);
       iocshRegister(&drvSerialTestAttachFuncDef, drvSerialTestAttachCallFunc);
