@@ -19,7 +19,7 @@
 #------------------------------------------------------------------------------
 
 #INSTALL_LOCATION_APP=<fullpathname>
-EPICS_RELEASE=R3.14.12.8
+EPICS_RELEASE=R3.15.6
 
 
 EPICS_BASE=/gem_sw/epics/$(EPICS_RELEASE)/base
