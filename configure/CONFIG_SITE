@@ -19,7 +19,8 @@ CHECK_RELEASE = YES
 # To only use a subset of the supported cross-compiled targets,
 # uncomment the first line and the lines for the targets you
 # wish to include.
-#CROSS_COMPILER_TARGET_ARCHS =
+CROSS_COMPILER_TARGET_ARCHS = linux-x86
+#CROSS_COMPILER_TARGET_ARCHS = RTEMS-mvme3100
 #CROSS_COMPILER_TARGET_ARCHS += vxWorks-mv6100
 #CROSS_COMPILER_TARGET_ARCHS += vxWorks-cRIO
 #CROSS_COMPILER_TARGET_ARCHS += vxWorks-cr12
@@ -35,3 +36,4 @@ CHECK_RELEASE = YES
 # You must rebuild in the iocBoot directory for this to
 #   take effect.
 #IOCS_APPL_TOP = </IOC/path/to/application/top>
+

@@ -23,6 +23,8 @@ LIBRARY_IOC = drvSerial
 drvSerial_SRCS += drvSerial.c
 drvSerial_SRCS += drvSerialRegister.cpp
 
+USR_CFLAGS += -DUSE_TYPED_RSET -DUSE_TYPED_DSET -DUSE_TYPED_DRVET
+
 # A test facility to optionally add to an IOC
 DBD += drvSerialTest.dbd
 LIBRARY_IOC += drvSerialTest 

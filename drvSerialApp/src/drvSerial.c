@@ -225,12 +225,7 @@ typedef long drvSerialReport_t(int level);
 drvSerialReport_t drvSerialReport;
 drvInitFunc_t drvSerialInit;
 
-struct
-{
-   long number;
-   DRVSUPFUN report;
-   DRVSUPFUN init;
-} drvSerial =
+drvet drvSerial =
 {
    2L,
    drvSerialReport,
