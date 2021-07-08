@@ -108,7 +108,8 @@
 #include <string.h>
 //#include <sys/ioctl.h>
 #include <errno.h>
-#include <sys/termios.h>
+//#include <sys/termios.h>
+#include <termios.h>
 
 /*
  * EPICS
