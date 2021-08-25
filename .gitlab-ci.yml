@@ -1,0 +1,11 @@
+
+include:
+    project: 'nsf-noirlab/gemini/rtsw/gem-ci'
+    ref: master
+    file: 
+     - '/templates/gitlab-ci/templates/global-rpm-container-docker.gitlab-ci.template.yml'
+     - '/templates/gitlab-ci/templates/app-rpm-container-docker.gitlab-ci.template.yml'
+      
+
+variables:
+    BASE_CONTAINER: "registry.gitlab.com/nsf-noirlab/gemini/rtsw/iocs/examplesoftioc/unstable/devel-containerization:latest"
