@@ -1,3 +1,14 @@
+
+
+# drSerial
+
+## Contents
+- Description
+- Links to Additional Info
+- Dependencies
+- Release Notes
+
+## Description
 This is the drvSerial EPICS support module.
 
 To get the latest sources, follow this procedure 
@@ -19,3 +30,9 @@ I you are going to connect your remote devices to a terminal server
 then you will also need the tnet driver, which is somewhere in the
 EPICS distribution.
 
+
+## Dependencies
+- None
+
+## Release Notes
+- See git commit logs for now until a formal release notes doc is created
