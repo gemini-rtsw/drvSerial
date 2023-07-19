@@ -795,7 +795,7 @@ drvSerialRead (drvSerialParm * pDev)
    freeListItem   resp;
    int fd;
    struct termios termios;
-
+   printf ("drvSerialRead = START\n");
 
    while (TRUE)
    {
@@ -1299,9 +1299,8 @@ drvSerialLinkOpen (drvSerialParm *pDev)
       
 
    pDev->readCanceled = 1;
-
    pDev->wtTaskId = 
-     epicsThreadCreate(
+     epicsThreadMustCreate(
              "SerialWT",   /* task name */
              tp_drvSerialPriority,/* priority */
              tp_drvSerialStackSize,/* stack size */
@@ -1315,7 +1314,6 @@ drvSerialLinkOpen (drvSerialParm *pDev)
       pDev->pWF = NULL;
       return S_db_noMemory;
    }
-
    pDev->rdTaskId = 
      epicsThreadCreate(
              "SerialRD",   /* task name */
