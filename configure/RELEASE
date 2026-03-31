@@ -20,6 +20,7 @@
 
 #INSTALL_LOCATION_APP=<fullpathname>
 
+SUPPORT=/gem_base/epics/support
 EPICS_BASE=/gem_base/epics/epics-base
 
 # include local RELEASE configuration file (this will be ignored by with
